@@ -129,7 +129,9 @@ export function TrueFalseJustifyCard({ front, back, advancedMetadata, onRate }: 
              {advancedMetadata?.justification && (
                 <div style={{ marginTop: "1.5rem", padding: "1rem", background: "rgba(255,255,255,0.03)", borderRadius: "12px", border: "1px dashed rgba(255,255,255,0.1)" }}>
                   <p style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "0.5rem" }}>IDEAL JUSTIFICATION</p>
-                  <p style={{ fontSize: "0.95rem", fontStyle: "italic" }}>{advancedMetadata.justification}</p>
+                  <div style={{ fontSize: "0.95rem", fontStyle: "italic" }}>
+                    <ReactMarkdown {...MD_OPTS}>{advancedMetadata.justification}</ReactMarkdown>
+                  </div>
                 </div>
              )}
           </div>

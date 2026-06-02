@@ -62,7 +62,7 @@ export function SequencingCard({ front, back, options, advancedMetadata, onRate 
           {selectedOrder.map((idx, pos) => (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <div style={{ padding: "0.5rem 1rem", background: "var(--accent)", color: "#000", borderRadius: "8px", fontWeight: 600, fontSize: "0.9rem" }}>
-                {options[idx]}
+                <ReactMarkdown {...MD_OPTS}>{options[idx]}</ReactMarkdown>
               </div>
               {pos < selectedOrder.length - 1 && <ArrowDown size={14} color="var(--text-muted)" />}
             </div>
@@ -90,7 +90,7 @@ export function SequencingCard({ front, back, options, advancedMetadata, onRate 
                     transition: "all 0.2s"
                   }}
                 >
-                  {opt}
+                  <ReactMarkdown {...MD_OPTS}>{opt}</ReactMarkdown>
                 </button>
               );
             })}
@@ -126,7 +126,9 @@ export function SequencingCard({ front, back, options, advancedMetadata, onRate 
                 <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, width: "100%", marginBottom: "0.5rem" }}>CORRECT ORDER:</p>
                 {(advancedMetadata?.sequenceOrder || []).map((idx, pos) => (
                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                     <span style={{ fontWeight: 600, color: "var(--accent)" }}>{options?.[idx]}</span>
+                     <span style={{ fontWeight: 600, color: "var(--accent)" }}>
+                       <ReactMarkdown {...MD_OPTS}>{options?.[idx]}</ReactMarkdown>
+                     </span>
                      {pos < (advancedMetadata?.sequenceOrder?.length || 0) - 1 && <span style={{ color: "var(--text-muted)" }}>→</span>}
                    </div>
                 ))}

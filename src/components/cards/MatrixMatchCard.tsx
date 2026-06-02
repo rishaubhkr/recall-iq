@@ -101,9 +101,9 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
                   position: "relative"
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span>{text}</span>
-                  {Object.keys(currentMapping[idx] || {}).length > 0 && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                  <div style={{ flex: 1 }}><ReactMarkdown {...MD_OPTS}>{text}</ReactMarkdown></div>
+                  {Object.keys(currentMapping[idx] || {}).length > 0 && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", flexShrink: 0, marginLeft: "0.5rem" }} />}
                 </div>
               </button>
             ))
@@ -136,7 +136,7 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
                     opacity: selectedA === null ? 0.6 : 1
                   }}
                 >
-                  {text}
+                  <ReactMarkdown {...MD_OPTS}>{text}</ReactMarkdown>
                 </button>
               );
             })
@@ -168,15 +168,24 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
              </p>
              
              {/* Correct Mapping Summary */}
-             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
                 {(advancedMetadata?.matrixA || []).map((text, idx) => (
-                  <div key={idx} style={{ fontSize: "0.9rem", color: "var(--text-secondary)", display: "flex", gap: "0.5rem" }}>
-                    <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{text}</span>
+                  <div key={idx} style={{ fontSize: "0.9rem", color: "var(--text-secondary)", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                      <ReactMarkdown {...MD_OPTS}>{text}</ReactMarkdown>
+                    </div>
                     <span>→</span>
-                    <span style={{ color: "var(--accent)" }}>{(advancedMetadata?.matrixMapping?.[idx] || []).map(i => advancedMetadata?.matrixB?.[i]).join(", ")}</span>
+                    <div style={{ color: "var(--accent)", display: "flex", gap: "0.25rem", flexWrap: "wrap", alignItems: "center" }}>
+                      {(advancedMetadata?.matrixMapping?.[idx] || []).map((i, subIdx) => (
+                        <div key={i} style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
+                          <ReactMarkdown {...MD_OPTS}>{advancedMetadata?.matrixB?.[i]}</ReactMarkdown>
+                          {subIdx < (advancedMetadata?.matrixMapping?.[idx] || []).length - 1 && <span>,</span>}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
-             </div>
+              </div>
 
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6, borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "1.5rem" }}>
                <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
