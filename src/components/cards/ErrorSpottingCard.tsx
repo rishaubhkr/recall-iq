@@ -67,9 +67,9 @@ export function ErrorSpottingCard({ front, back, advancedMetadata, onRate }: Err
           Click on the line where the first logical error occurs.
         </p>
         {instruction && (
-          <p style={{ fontSize: "1.05rem", color: "var(--text-primary)", marginTop: "1rem", fontWeight: 600 }}>
-            {instruction}
-          </p>
+          <div style={{ fontSize: "1.05rem", color: "var(--text-primary)", marginTop: "1rem", fontWeight: 600 }}>
+            <ReactMarkdown {...MD_OPTS}>{instruction}</ReactMarkdown>
+          </div>
         )}
       </div>
 
