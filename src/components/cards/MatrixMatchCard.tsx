@@ -4,13 +4,17 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
-import { CheckCircle2, XCircle, Link as LinkIcon } from "lucide-react";
 
 interface MatrixMatchCardProps {
+  front: string;
+  back: string;
+  advancedMetadata: {
+    matrixA: string[];
+    matrixB: string[];
+    matrixMapping: Record<string, number[]>;
+  };
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
 
@@ -61,8 +65,6 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
   };
 
   const isCorrect = revealed && checkCorrectness();
-
-  const isMissingData = (advancedMetadata?.matrixA || []).length === 0 || (advancedMetadata?.matrixB || []).length === 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem", width: "100%" }}>
