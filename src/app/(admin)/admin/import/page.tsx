@@ -1,0 +1,573 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../../../../convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
+import { 
+  CheckCircle, AlertCircle, Plus, Trash2, Sparkles, 
+  Database, Settings2, X, Layers, Loader2
+} from "lucide-react";
+import type { Id } from "../../../../../convex/_generated/dataModel";
+
+type RowData = Record<string, string>;
+const EMPTY_ROW = (slug: string = ""): RowData => {
+  return {
+    type: "flashcard",
+    front: "",
+    back: "",
+    options: "",
+    correctOption: "",
+    clozeTemplate: "",
+    whyPrompt: "",
+    tags: "",
+    subtopicSlug: slug,
+    tier: "free"
+  };
+};
+
+const VALID_TYPES = [
+  "flashcard", "mcq", "cloze", "elaborative", "numerical", 
+  "assertion_reason", "error_spotting", "matrix_match", 
+  "sequencing", "concept_interleave", "image_occlusion", 
+  "multi_select", "true_false_justify"
+];
+
+function validateRow(row: RowData): string | null {
+  if (!VALID_TYPES.includes(row.type)) return "Type";
+  
+  if (row.type === "cloze") {
+    if (!row.clozeTemplate?.trim()) return "Cloze Template";
+  } else if (row.type === "mcq" || row.type === "multi_select" || row.type === "sequencing") {
+    if (!row.front.trim()) return "Front";
+    if (!row.options?.trim()) return "Options";
+    if (row.type === "mcq" && !row.correctOption?.trim()) return "Correct Index";
+  } else if (row.type === "assertion_reason" || row.type === "matrix_match" || row.type === "error_spotting") {
+    if (!row.front.trim()) return "Front";
+    // Metadata is often enough for these, but we check if metadata exists
+    if (!row.advancedMetadata?.trim() && !row.back.trim()) return "Solution/Metadata Missing";
+  } else {
+    if (!row.front.trim()) return "Front";
+    if (!row.back.trim()) return "Back";
+  }
+  
+  if (!row.subtopicSlug.trim()) return "Slug";
+  return null;
+}
+
+function buildPrompt(ctx: { courseName: string; subjectName: string; topicName: string; subtopicSlug: string; subtopicName: string; cardQuantity: number }) {
+  return `Act as a JEE Expert. Generate high-quality retrieval cards for: ${ctx.courseName} > ${ctx.subjectName} > ${ctx.topicName} > ${ctx.subtopicName}
+Output ONLY a TSV table with the following headers:
+type\tfront\tback\toptions\tcorrectOption\tclozeTemplate\twhyPrompt\ttags\tsubtopicSlug\ttier\tadvancedMetadata
+
+--- SCHEMA REFERENCE (CRITICAL) ---
+1. type: [flashcard, mcq, cloze, elaborative, numerical, assertion_reason, error_spotting, matrix_match, sequencing, multi_select, true_false_justify]
+2. ALL INDICES MUST BE 0-BASED. (Line 1 = 0, Option 1 = 0).
+3. error_spotting: 
+   - 'front' MUST contain a multi-line derivation. Use literal '\\n' for new lines.
+   - 'advancedMetadata': {"errorLine": 0} (where 0 is the index of the line with the error).
+4. sequencing:
+   - 'options' MUST contain items to order (A|B|C).
+   - 'advancedMetadata': {"sequenceOrder": [2, 0, 1]} (0-based indices in correct order).
+5. matrix_match:
+   - 'advancedMetadata': {"matrixA": ["A1","A2"], "matrixB": ["B1","B2"], "matrixMapping": {"0": [1], "1": [0]}}
+6. multi_select:
+   - 'options' (A|B|C)
+   - 'advancedMetadata': {"correctOptions": [0, 2]}
+7. assertion_reason:
+   - 'advancedMetadata': {"assertion": "..", "reason": "..", "correctAssertionReasonKey": "A"} (A-E keys).
+8. numerical: {"numericalAnswer": 10.5, "numericalTolerance": 0.1}
+
+subtopicSlug: MUST be exactly: ${ctx.subtopicSlug}
+
+Generate ${ctx.cardQuantity} diverse cards focusing on deep conceptual mastery. Use LaTeX for math. Ensure advancedMetadata is a valid JSON string without internal tabs.`;
+}
+
+export default function BulkImportPage() {
+  const { user } = useUser();
+  const createCard = useMutation(api.cards.createCard);
+
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ ok: number; failed: number; errors: string[] } | null>(null);
+  const [cardQuantity, setCardQuantity] = useState(10);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+
+  const [selectedCourseId, setSelectedCourseId] = useState<Id<"courses"> | "">("");
+  const [selectedSubjectId, setSelectedSubjectId] = useState<Id<"subjects"> | "">("");
+  const [selectedTopicId, setSelectedTopicId] = useState<Id<"topics"> | "">("");
+  const [selectedSubtopicId, setSelectedSubtopicId] = useState<Id<"subtopics"> | "">("");
+
+  const courses = useQuery(api.courses.listAllCourses);
+  const subjects = useQuery(api.subjects.listSubjectsByCourse, selectedCourseId ? { courseId: selectedCourseId } : "skip");
+  const topics = useQuery(api.subjects.listTopicsBySubject, selectedSubjectId ? { subjectId: selectedSubjectId } : "skip");
+  const subtopics = useQuery(api.subjects.listSubtopicsByTopic, selectedTopicId ? { topicId: selectedTopicId } : "skip");
+  const allSubtopics = useQuery(api.subjects.listAllSubtopics);
+
+  const activeCourse = courses?.find(c => c._id === selectedCourseId);
+  const activeSubject = subjects?.find(s => s._id === selectedSubjectId);
+  const activeTopic = topics?.find(t => t._id === selectedTopicId);
+  const activeSubtopic = subtopics?.find(s => s._id === selectedSubtopicId);
+
+  const [rows, setRows] = useState<RowData[]>([EMPTY_ROW()]);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const text = e.clipboardData.getData("text/plain");
+    if (!text.includes("\t")) return;
+    e.preventDefault();
+    
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    const hasHeader = lines[0].toLowerCase().includes("type");
+    const headerRow = hasHeader ? lines[0].toLowerCase().split("\t") : [];
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    const defaultCols = ["type", "front", "back", "options", "correctOption", "clozeTemplate", "whyPrompt", "tags", "subtopicSlug", "tier", "advancedMetadata"];
+
+    const parsed: RowData[] = dataLines.map(line => {
+      // Handle TSV with quotes (strip them)
+      const cells = line.split("\t").map(c => {
+        let val = c.trim();
+        if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+        return val;
+      });
+      
+      const row = EMPTY_ROW(activeSubtopic?.slug);
+      
+      if (hasHeader) {
+        const ALIAS_MAP: Record<string, string> = {
+          "type": "type",
+          "front": "front",
+          "back": "back",
+          "options": "options",
+          "correctoption": "correctOption",
+          "correct option": "correctOption",
+          "correct index": "correctOption",
+          "clozetemplate": "clozeTemplate",
+          "cloze template": "clozeTemplate",
+          "whyprompt": "whyPrompt",
+          "why prompt": "whyPrompt",
+          "tags": "tags",
+          "subtopicslug": "subtopicSlug",
+          "subtopic slug": "subtopicSlug",
+          "tier": "tier",
+          "advancedmetadata": "advancedMetadata",
+          "advanced metadata": "advancedMetadata",
+          "metadata": "advancedMetadata"
+        };
+
+        headerRow.forEach((colName, i) => {
+          const rawName = colName.trim().toLowerCase();
+          const mappedKey = ALIAS_MAP[rawName];
+          if (mappedKey && cells[i]) {
+            row[mappedKey] = cells[i];
+          }
+        });
+      } else {
+        defaultCols.forEach((key, i) => { if(cells[i]) row[key] = cells[i]; });
+      }
+      return row;
+    });
+    setRows(prev => [...prev.filter(r => r.front || r.back), ...parsed]); // Append to existing, filtering empty
+    setSelectedIndices(new Set());
+  }, [activeSubtopic]);
+
+  const handleSelectAll = () => {
+    if (selectedIndices.size === rows.length) {
+      setSelectedIndices(new Set());
+    } else {
+      setSelectedIndices(new Set(rows.map((_, i) => i)));
+    }
+  };
+
+  const toggleSelect = (idx: number) => {
+    const next = new Set(selectedIndices);
+    if (next.has(idx)) next.delete(idx);
+    else next.add(idx);
+    setSelectedIndices(next);
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIndices.size === 0) return;
+    setRows(prev => prev.filter((_, i) => !selectedIndices.has(i)));
+    setSelectedIndices(new Set());
+  };
+
+  const handleBulkTier = (tier: 'free' | 'premium') => {
+    setRows(prev => prev.map((r, i) => selectedIndices.has(i) ? { ...r, tier } : r));
+    setSelectedIndices(new Set());
+  };
+
+  const handleImport = async () => {
+    if (!user || importing) return;
+    const validRows = rows.filter(r => !validateRow(r));
+    if (!validRows.length) return;
+
+    setImporting(true);
+    let ok = 0;
+    const errors: string[] = [];
+    const slugMap = new Map(allSubtopics?.map(s => [s.slug, s._id]));
+
+    for (const row of validRows) {
+      let subtopicId = slugMap.get(row.subtopicSlug);
+      
+      // OPTION B: Fallback to selected subtopic if slug is unknown or clearly wrong
+      if (!subtopicId && selectedSubtopicId) {
+        subtopicId = selectedSubtopicId;
+        console.warn(`Falling back to selected subtopic for row with unknown slug: ${row.subtopicSlug}`);
+      }
+
+      if (!subtopicId) { errors.push(`Unknown slug: ${row.subtopicSlug}`); continue; }
+      try {
+        await createCard({
+          subtopicId,
+          type: row.type as any,
+          tier: row.tier === "premium" ? "premium" : "free",
+          front: row.type === "cloze" && !row.front ? row.clozeTemplate : row.front,
+          back: row.back,
+          options: row.options ? row.options.split("|").map(s => s.trim()) : undefined,
+          correctOption: row.correctOption ? Number(row.correctOption) : undefined,
+          clozeTemplate: row.clozeTemplate || undefined,
+          whyPrompt: row.whyPrompt || undefined,
+          tags: row.tags ? row.tags.split(",").map(t => t.trim()) : [],
+          advancedMetadata: row.advancedMetadata ? (() => {
+            const data = JSON.parse(row.advancedMetadata);
+            // Shim for correctIndices -> correctOptions
+            if (data.correctIndices && !data.correctOptions) {
+              data.correctOptions = data.correctIndices;
+              delete data.correctIndices;
+            }
+            return data;
+          })() : undefined,
+          createdBy: user.id,
+        });
+        ok++;
+      } catch (err: unknown) {
+        errors.push(err instanceof Error ? err.message : "Unknown error");
+      }
+    }
+    setImportResult({ ok, failed: errors.length, errors });
+    setImporting(false);
+    // Optionally clear rows that succeeded? User said "clear them easily after added"
+    // For now we keep them so they can see result, but "Select All" + "Delete" works.
+  };
+
+  const [previewRow, setPreviewRow] = useState<RowData | null>(null);
+
+  return (
+    <div className="animate-in" style={{ maxWidth: 1100, margin: "0 auto", paddingBottom: "4rem" }}>
+      
+      {/* --- Standard Header --- */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "2rem", gap: "1rem", flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "2.5rem", fontWeight: 600, letterSpacing: "-0.03em" }}>Bulk Import</h1>
+          <p style={{ color: "var(--text-secondary)", fontWeight: 500 }}>Paste content from AI to generate cards instantly</p>
+        </div>
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <button className="btn btn-ghost" onClick={() => setShowAIModal(true)} style={{ padding: "0.75rem 1.5rem", borderRadius: "14px", border: "1px solid var(--border)" }}>
+            <Sparkles size={18} className="text-accent" style={{ marginRight: "0.5rem" }} />
+            AI Prompt
+          </button>
+          <button 
+            className="btn btn-primary" 
+            onClick={handleImport}
+            disabled={importing || rows.filter(r => !validateRow(r)).length === 0}
+            style={{ padding: "0.75rem 1.5rem", borderRadius: "14px" }}
+          >
+            {importing ? <Loader2 size={18} className="animate-spin" style={{ marginRight: "0.5rem" }} /> : <Database size={18} style={{ marginRight: "0.5rem" }} />}
+            Push to Database
+          </button>
+        </div>
+      </div>
+
+      {importResult && (
+        <div className="glass-card" style={{ padding: "1.5rem", borderRadius: "24px", marginBottom: "2rem", border: importResult.failed > 0 ? "1px solid var(--error)" : "1px solid var(--success)" }}>
+          <h3 style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem", color: importResult.failed > 0 ? "var(--error)" : "var(--success)" }}>
+            {importResult.failed > 0 ? <AlertCircle size={18} /> : <CheckCircle size={18} />}
+            Import Complete: {importResult.ok} OK, {importResult.failed} Failed
+          </h3>
+          {importResult.errors.length > 0 && (
+            <div style={{ marginTop: "1rem", padding: "1rem", background: "rgba(0,0,0,0.2)", borderRadius: "10px", fontSize: "0.85rem", fontFamily: "monospace", color: "var(--error)" }}>
+              {importResult.errors.map((e, i) => <div key={i}>{e}</div>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* --- Context Setup Card --- */}
+      <div className="glass-card" style={{ padding: "2rem", borderRadius: "24px", marginBottom: "2rem" }}>
+        <h3 style={{ marginBottom: "1.5rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Layers size={18} className="text-accent" /> Hierarchy Setup
+        </h3>
+        
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+          {[
+            { label: "Course", val: selectedCourseId, set: setSelectedCourseId, data: courses },
+            { label: "Subject", val: selectedSubjectId, set: setSelectedSubjectId, data: subjects, disabled: !selectedCourseId },
+            { label: "Chapter", val: selectedTopicId, set: setSelectedTopicId, data: topics, disabled: !selectedSubjectId },
+            { label: "Subtopic", val: selectedSubtopicId, set: setSelectedSubtopicId, data: subtopics, disabled: !selectedTopicId }
+          ].map((sel, i) => (
+            <div key={i}>
+              <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.4rem", fontWeight: 600 }}>{sel.label}</label>
+              <select 
+                value={sel.val}
+                disabled={sel.disabled}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  sel.set(id as any);
+                  if (sel.label === "Subtopic") {
+                    const sub = subtopics?.find(s => s._id === id);
+                    if (sub?.slug) setRows(prev => prev.map(r => r.subtopicSlug ? r : { ...r, subtopicSlug: sub.slug }));
+                  }
+                }}
+                className="input"
+                style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "10px", padding: "0.75rem", appearance: "none" }}
+              >
+                <option value="">Select {sel.label}</option>
+                {sel.data?.map((item: { _id: string; name: string }) => <option key={item._id} value={item._id}>{item.name}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* --- Editor Grid Card --- */}
+      <div className="glass-card" style={{ padding: "2rem", borderRadius: "24px" }} onPaste={handlePaste}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+          <h3 style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Settings2 size={18} className="text-accent" /> Active Batch
+          </h3>
+          <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 500 }}>
+            <span style={{ color: "var(--success)" }}>{rows.filter(r => !validateRow(r)).length} Ready</span> / {rows.length} Total
+          </div>
+        </div>
+
+        <div style={{ overflowX: "auto", paddingBottom: "1rem" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.9rem", minWidth: "800px" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                <th style={{ padding: "1rem 0.5rem", width: "40px", textAlign: "center" }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedIndices.size === rows.length && rows.length > 0}
+                    onChange={handleSelectAll}
+                    style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                  />
+                </th>
+                <th style={{ padding: "1rem 0.5rem", fontWeight: 600, width: "140px" }}>Type</th>
+                <th style={{ padding: "1rem 0.5rem", fontWeight: 600 }}>Front</th>
+                <th style={{ padding: "1rem 0.5rem", fontWeight: 600 }}>Back</th>
+                <th style={{ padding: "1rem 0.5rem", fontWeight: 600, width: "150px" }}>Tags</th>
+                <th style={{ padding: "1rem 0.5rem", fontWeight: 600, width: "100px" }}>Access</th>
+                <th style={{ padding: "1rem 0.5rem", width: "100px", textAlign: "center" }}>Preview</th>
+                <th style={{ padding: "1rem 0.5rem", width: "40px" }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => {
+                const error = validateRow(row);
+                const isCloze = row.type === "cloze";
+                const isMcq = row.type === "mcq";
+
+                const isSelected = selectedIndices.has(idx);
+
+                return (
+                  <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: isSelected ? "rgba(245, 158, 11, 0.03)" : "transparent" }}>
+                    <td style={{ padding: "1rem 0.5rem", textAlign: "center", display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: "center" }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isSelected}
+                        onChange={() => toggleSelect(idx)}
+                        style={{ cursor: "pointer", width: "16px", height: "16px" }}
+                      />
+                      {error ? <AlertCircle size={14} color="var(--error)" title={error} /> : <CheckCircle size={14} color="var(--success)" />}
+                    </td>
+                    <td style={{ padding: "1rem 0.5rem" }}>
+                      <select 
+                        value={row.type}
+                        onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, type: e.target.value } : r))}
+                        className="input"
+                        style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem" }}
+                      >
+                        {VALID_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ padding: "1rem 0.5rem" }}>
+                      {isCloze ? (
+                        <textarea 
+                          value={row.clozeTemplate}
+                          onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, clozeTemplate: e.target.value } : r))}
+                          className="input"
+                          style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem", minHeight: "80px", resize: "vertical", border: "1px solid var(--accent)" }}
+                          placeholder="Cloze Template (e.g. {{c1::Answer}} is...)"
+                        />
+                      ) : (
+                        <textarea 
+                          value={row.front}
+                          onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, front: e.target.value } : r))}
+                          className="input"
+                          style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem", minHeight: "60px", resize: "vertical" }}
+                          placeholder="Question content..."
+                        />
+                      )}
+                    </td>
+                    <td style={{ padding: "1rem 0.5rem" }}>
+                      {isCloze ? (
+                        <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", padding: "0.5rem", background: "rgba(0,0,0,0.1)", borderRadius: "8px" }}>
+                          Cloze cards use the template field for both sides.
+                        </div>
+                      ) : isMcq ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          <input 
+                            value={row.options}
+                            onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, options: e.target.value } : r))}
+                            className="input"
+                            style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem" }}
+                            placeholder="Opt1 | Opt2 | Opt3"
+                          />
+                          <input 
+                            type="number"
+                            value={row.correctOption}
+                            onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, correctOption: e.target.value } : r))}
+                            className="input"
+                            style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem" }}
+                            placeholder="Correct index (0-3)"
+                          />
+                        </div>
+                      ) : (
+                        <textarea 
+                          value={row.back}
+                          onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, back: e.target.value } : r))}
+                          className="input"
+                          style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem", minHeight: "60px", resize: "vertical" }}
+                          placeholder="Answer content..."
+                        />
+                      )}
+                    </td>
+                    <td style={{ padding: "1rem 0.5rem" }}>
+                      <input 
+                        value={row.tags}
+                        onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, tags: e.target.value } : r))}
+                        className="input"
+                        style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem" }}
+                        placeholder="tag1, tag2"
+                      />
+                    </td>
+                    <td style={{ padding: "1rem 0.5rem", textAlign: "center" }}>
+                      <button 
+                        onClick={() => setRows(prev => prev.map((r, i) => i === idx ? { ...r, tier: r.tier === 'free' ? 'premium' : 'free' } : r))}
+                        className={`btn ${row.tier === 'premium' ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ padding: "0.4rem 0.8rem", fontSize: "0.75rem", borderRadius: "8px", border: row.tier === 'premium' ? 'none' : '1px solid var(--border)' }}
+                      >
+                        {row.tier}
+                      </button>
+                    </td>
+                    <td style={{ padding: "1rem 0.5rem", textAlign: "center" }}>
+                      <button 
+                        onClick={() => setPreviewRow(row)}
+                        className="btn btn-ghost"
+                        style={{ padding: "0.4rem", borderRadius: "8px" }}
+                      >
+                        <Sparkles size={16} className="text-accent" />
+                      </button>
+                    </td>
+                    <td style={{ padding: "1rem 0.5rem", textAlign: "center" }}>
+                      <button 
+                        onClick={() => setRows(prev => prev.filter((_, i) => i !== idx))}
+                        style={{ background: "none", border: "none", color: "var(--error)", cursor: "pointer", opacity: 0.7 }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ marginTop: "1rem", display: "flex", gap: "1rem" }}>
+          <button 
+            onClick={() => {
+              setRows(prev => [...prev, EMPTY_ROW(activeSubtopic?.slug)]);
+              setSelectedIndices(new Set());
+            }}
+            className="btn btn-ghost"
+            style={{ fontSize: "0.85rem", borderRadius: "10px", border: "1px dashed var(--border)", flex: 1 }}
+          >
+            <Plus size={16} style={{ marginRight: "0.5rem" }} /> Add Another Row
+          </button>
+          
+          {selectedIndices.size > 0 && (
+            <div className="animate-in" style={{ display: "flex", gap: "0.5rem", alignItems: "center", padding: "0 1rem", background: "rgba(245, 158, 11, 0.1)", borderRadius: "12px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)", marginRight: "0.5rem" }}>{selectedIndices.size} Selected</span>
+              <button onClick={() => handleBulkTier('free')} className="btn btn-ghost" style={{ padding: "0.3rem 0.7rem", fontSize: "0.7rem" }}>Make Free</button>
+              <button onClick={() => handleBulkTier('premium')} className="btn btn-ghost" style={{ padding: "0.3rem 0.7rem", fontSize: "0.7rem" }}>Make Premium</button>
+              <div style={{ width: "1px", height: "20px", background: "var(--border)", margin: "0 0.25rem" }} />
+              <button onClick={handleBulkDelete} className="btn btn-ghost" style={{ padding: "0.4rem", color: "var(--error)" }}>
+                <Trash2 size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* --- AI Prompt Modal --- */}
+      {showAIModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem", background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)" }}>
+          <div className="glass-card" style={{ width: "100%", maxWidth: "700px", padding: "3rem", borderRadius: "32px", position: "relative", background: "var(--bg-elevated)" }}>
+            <button 
+              onClick={() => setShowAIModal(false)}
+              style={{ position: "absolute", top: "2rem", right: "2rem", background: "rgba(255,255,255,0.05)", border: "none", color: "white", padding: "0.5rem", borderRadius: "50%", cursor: "pointer" }}
+            >
+              <X size={20} />
+            </button>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: "2rem", fontWeight: 600, marginBottom: "0.5rem" }}>Master Prompt</h2>
+            <p style={{ color: "var(--text-muted)", marginBottom: "2rem" }}>Copy this context to ChatGPT or Claude to generate TSV data.</p>
+            
+            <div style={{ marginBottom: "1.5rem" }}>
+              <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.4rem", fontWeight: 600 }}>Quantity of Cards</label>
+              <input 
+                type="number" 
+                value={cardQuantity}
+                onChange={(e) => setCardQuantity(Number(e.target.value))}
+                min={1}
+                max={50}
+                className="input"
+                style={{ width: "100px", background: "rgba(0,0,0,0.2)", borderRadius: "10px", padding: "0.75rem" }}
+              />
+            </div>
+
+            <div style={{ background: "rgba(0,0,0,0.3)", padding: "1.5rem", borderRadius: "16px", border: "1px solid var(--border)", fontFamily: "monospace", color: "var(--accent)", fontSize: "0.85rem", whiteSpace: "pre-wrap", marginBottom: "2rem", maxHeight: "400px", overflowY: "auto" }}>
+              {buildPrompt({
+                courseName: activeCourse?.name ?? "...",
+                subjectName: activeSubject?.name ?? "...",
+                topicName: activeTopic?.name ?? "...",
+                subtopicName: activeSubtopic?.name ?? "...",
+                subtopicSlug: activeSubtopic?.slug ?? "slug",
+                cardQuantity
+              })}
+            </div>
+            
+            <button 
+              className="btn btn-primary"
+              style={{ width: "100%", padding: "1rem", borderRadius: "16px", fontSize: "1rem", fontWeight: 700 }}
+              onClick={() => {
+                navigator.clipboard.writeText(buildPrompt({
+                  courseName: activeCourse?.name ?? "...",
+                  subjectName: activeSubject?.name ?? "...",
+                  topicName: activeTopic?.name ?? "...",
+                  subtopicName: activeSubtopic?.name ?? "...",
+                  subtopicSlug: activeSubtopic?.slug ?? "slug",
+                  cardQuantity
+                }));
+              }}
+            >
+              Copy to Clipboard
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
