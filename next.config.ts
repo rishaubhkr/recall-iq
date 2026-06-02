@@ -77,7 +77,7 @@ const securityHeaders = [
   ...(isProd ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }] : []),
 ];
 
-const baseConfig: NextConfig = {
+const baseConfig: any = {
   turbopack: {}, // silence Turbopack warning
   images: {
     remotePatterns: [
