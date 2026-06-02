@@ -35,23 +35,93 @@ const VALID_TYPES = [
 
 function validateRow(row: RowData): string | null {
   if (!VALID_TYPES.includes(row.type)) return "Type";
+  if (!row.subtopicSlug?.trim()) return "Slug";
+  if (!row.front?.trim()) return "Front";
   
   if (row.type === "cloze") {
     if (!row.clozeTemplate?.trim()) return "Cloze Template";
-  } else if (row.type === "mcq" || row.type === "multi_select" || row.type === "sequencing") {
-    if (!row.front.trim()) return "Front";
+  } else if (row.type === "mcq") {
     if (!row.options?.trim()) return "Options";
-    if (row.type === "mcq" && !row.correctOption?.trim()) return "Correct Index";
-  } else if (row.type === "assertion_reason" || row.type === "matrix_match" || row.type === "error_spotting") {
-    if (!row.front.trim()) return "Front";
-    // Metadata is often enough for these, but we check if metadata exists
-    if (!row.advancedMetadata?.trim() && !row.back.trim()) return "Solution/Metadata Missing";
+    if (!row.correctOption?.trim()) return "Correct Index";
+  } else if (row.type === "numerical") {
+    if (!row.back?.trim()) return "Back";
+    if (!row.advancedMetadata?.trim()) return "Metadata (numericalAnswer) Missing";
+    try {
+      const data = JSON.parse(row.advancedMetadata);
+      if (data.numericalAnswer === undefined || isNaN(Number(data.numericalAnswer))) {
+        return "Metadata must contain 'numericalAnswer' (number)";
+      }
+    } catch (e) {
+      return "Metadata must be valid JSON (e.g. {\"numericalAnswer\": 42})";
+    }
+  } else if (row.type === "multi_select") {
+    if (!row.options?.trim()) return "Options";
+    if (!row.advancedMetadata?.trim()) return "Metadata (correctOptions) Missing";
+    try {
+      const data = JSON.parse(row.advancedMetadata);
+      if (!Array.isArray(data.correctOptions) && !Array.isArray(data.correctIndices)) {
+        return "Metadata must contain 'correctOptions' array";
+      }
+    } catch (e) {
+      return "Metadata must be valid JSON (e.g. {\"correctOptions\": [0, 2]})";
+    }
+  } else if (row.type === "sequencing") {
+    if (!row.options?.trim()) return "Options";
+    if (!row.advancedMetadata?.trim()) return "Metadata (sequenceOrder) Missing";
+    try {
+      const data = JSON.parse(row.advancedMetadata);
+      if (!Array.isArray(data.sequenceOrder)) {
+        return "Metadata must contain 'sequenceOrder' array";
+      }
+    } catch (e) {
+      return "Metadata must be valid JSON (e.g. {\"sequenceOrder\": [2, 0, 1]})";
+    }
+  } else if (row.type === "assertion_reason") {
+    if (!row.advancedMetadata?.trim()) return "Metadata (assertion/reason/correctAssertionReasonKey) Missing";
+    try {
+      const data = JSON.parse(row.advancedMetadata);
+      if (!data.assertion || !data.reason || !data.correctAssertionReasonKey) {
+        return "Metadata must contain assertion, reason, and correctAssertionReasonKey";
+      }
+    } catch (e) {
+      return "Metadata must be valid JSON";
+    }
+  } else if (row.type === "error_spotting") {
+    if (!row.advancedMetadata?.trim()) return "Metadata (errorLine) Missing";
+    try {
+      const data = JSON.parse(row.advancedMetadata);
+      if (data.errorLine === undefined || isNaN(Number(data.errorLine))) {
+        return "Metadata must contain 'errorLine' (number)";
+      }
+    } catch (e) {
+      return "Metadata must be valid JSON";
+    }
+  } else if (row.type === "matrix_match") {
+    if (!row.advancedMetadata?.trim()) return "Metadata (matrixA/matrixB/matrixMapping) Missing";
+    try {
+      const data = JSON.parse(row.advancedMetadata);
+      if (!Array.isArray(data.matrixA) || !Array.isArray(data.matrixB) || !data.matrixMapping) {
+        return "Metadata must contain matrixA, matrixB, and matrixMapping";
+      }
+    } catch (e) {
+      return "Metadata must be valid JSON";
+    }
+  } else if (row.type === "true_false_justify") {
+    if (!row.back?.trim()) return "Back";
+    if (!row.advancedMetadata?.trim()) return "Metadata (justification) Missing";
+    try {
+      const data = JSON.parse(row.advancedMetadata);
+      if (!data.justification?.trim()) {
+        return "Metadata must contain 'justification'";
+      }
+    } catch (e) {
+      return "Metadata must be valid JSON";
+    }
   } else {
-    if (!row.front.trim()) return "Front";
-    if (!row.back.trim()) return "Back";
+    // flashcard, elaborative, concept_interleave
+    if (!row.back?.trim()) return "Back";
   }
   
-  if (!row.subtopicSlug.trim()) return "Slug";
   return null;
 }
 
