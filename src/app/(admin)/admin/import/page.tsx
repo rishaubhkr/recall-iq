@@ -60,27 +60,30 @@ function buildPrompt(ctx: { courseName: string; subjectName: string; topicName: 
 Output ONLY a TSV table with the following headers:
 type\tfront\tback\toptions\tcorrectOption\tclozeTemplate\twhyPrompt\ttags\tsubtopicSlug\ttier\tadvancedMetadata
 
---- SCHEMA REFERENCE (CRITICAL) ---
-1. type: [flashcard, mcq, cloze, elaborative, numerical, assertion_reason, error_spotting, matrix_match, sequencing, multi_select, true_false_justify]
-2. ALL INDICES MUST BE 0-BASED. (Line 1 = 0, Option 1 = 0).
-3. error_spotting: 
-   - 'front' MUST contain a multi-line derivation. Use literal '\\n' for new lines.
-   - 'advancedMetadata': {"errorLine": 0} (where 0 is the index of the line with the error).
-4. sequencing:
-   - 'options' MUST contain items to order (A|B|C).
-   - 'advancedMetadata': {"sequenceOrder": [2, 0, 1]} (0-based indices in correct order).
-5. matrix_match:
-   - 'advancedMetadata': {"matrixA": ["A1","A2"], "matrixB": ["B1","B2"], "matrixMapping": {"0": [1], "1": [0]}}
-6. multi_select:
-   - 'options' (A|B|C)
-   - 'advancedMetadata': {"correctOptions": [0, 2]}
-7. assertion_reason:
-   - 'advancedMetadata': {"assertion": "..", "reason": "..", "correctAssertionReasonKey": "A"} (A-E keys).
-8. numerical: {"numericalAnswer": 10.5, "numericalTolerance": 0.1}
+--- SCHEMA REFERENCE & FORMATTING RULES (CRITICAL) ---
+1. type: Must be exactly one of: [flashcard, mcq, cloze, elaborative, numerical, assertion_reason, error_spotting, matrix_match, sequencing, multi_select, true_false_justify]
+2. ALL INDICES MUST BE 0-BASED. (Option 1 = 0, Line 1 = 0).
+3. JSON in TSV: The 'advancedMetadata' field must be a valid JSON string without double-quotes wrapping the outer JSON unless escaped. Do NOT use tabs inside the JSON.
+4. Formatting by type:
+   - "flashcard": Standard Q&A. front=question, back=answer.
+   - "cloze": Fill-in-the-blank. clozeTemplate="This is a {{c1::cloze template}}."
+   - "mcq": options="Option A | Option B | Option C | Option D", correctOption="0" (0-based index).
+   - "multi_select": options="Option A | Option B | Option C", advancedMetadata={"correctOptions": [0, 2]}
+   - "numerical": front="Calculate value...", advancedMetadata={"numericalAnswer": 12.27, "numericalTolerance": 0.05}
+   - "assertion_reason": advancedMetadata={"assertion": "Assertion statement", "reason": "Reason statement", "correctAssertionReasonKey": "A"} (Key must be A, B, C, D, or E).
+   - "error_spotting": front="multi-line calculation using \\n for new lines", advancedMetadata={"errorLine": 4} (0-based index of wrong line).
+   - "matrix_match":
+     * front: Introduction statement.
+     * advancedMetadata must contain exactly these keys:
+       {"matrixA": ["Item A1", "Item A2"], "matrixB": ["Item B1", "Item B2"], "matrixMapping": {"0": [1], "1": [0]}}
+     * (matrixMapping maps each index of matrixA to an array of correct matching indices in matrixB).
+   - "sequencing": options="Item A | Item B | Item C", advancedMetadata={"sequenceOrder": [2, 0, 1]} (correct sequence order of indices).
+   - "true_false_justify": front="Statement...", advancedMetadata={"justification": "Why it is true/false"}
 
 subtopicSlug: MUST be exactly: ${ctx.subtopicSlug}
+tier: free
 
-Generate ${ctx.cardQuantity} diverse cards focusing on deep conceptual mastery. Use LaTeX for math. Ensure advancedMetadata is a valid JSON string without internal tabs.`;
+Generate ${ctx.cardQuantity} diverse cards focusing on deep conceptual mastery. Use LaTeX for math ($...$ or $$...$$). Ensure advancedMetadata is a valid JSON string without internal tabs.`;
 }
 
 export default function BulkImportPage() {
