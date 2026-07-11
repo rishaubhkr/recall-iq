@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 
@@ -18,7 +16,6 @@ interface MatrixMatchCardProps {
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
 
-const MD_OPTS = { remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] };
 
 export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: MatrixMatchCardProps) {
   const [selectedA, setSelectedA] = useState<number | null>(null);
@@ -72,7 +69,7 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
       <div className="card" style={{ padding: "2rem", background: "var(--bg-elevated)", border: "4px solid #37464F", borderRadius: "24px" }}>
         <p style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.75rem", marginBottom: "1rem", letterSpacing: "0.1em", textAlign: "center" }}>MATRIX MATCHING</p>
         <div style={{ fontSize: "1.5rem", fontWeight: 600, textAlign: "center", lineHeight: 1.4 }}>
-          <ReactMarkdown {...MD_OPTS}>{front.replace(/\\n/g, '\n')}</ReactMarkdown>
+          <ContentRenderer fixEscapes>{front}</ContentRenderer>
         </div>
       </div>
 
@@ -102,7 +99,7 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-                  <div style={{ flex: 1 }}><ReactMarkdown {...MD_OPTS}>{text}</ReactMarkdown></div>
+                  <div style={{ flex: 1 }}><ContentRenderer>{text}</ContentRenderer></div>
                   {Object.keys(currentMapping[idx] || {}).length > 0 && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", flexShrink: 0, marginLeft: "0.5rem" }} />}
                 </div>
               </button>
@@ -136,7 +133,7 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
                     opacity: selectedA === null ? 0.6 : 1
                   }}
                 >
-                  <ReactMarkdown {...MD_OPTS}>{text}</ReactMarkdown>
+                  <ContentRenderer>{text}</ContentRenderer>
                 </button>
               );
             })
@@ -162,8 +159,8 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
         </div>
       ) : (
         <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "var(--accent)" : "#FF4B4B"}` }}>
-             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "var(--accent)" : "#FF4B4B", marginBottom: "1rem" }}>
+          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "#10B981" : "#FF4B4B"}` }}>
+             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "#10B981" : "#FF4B4B", marginBottom: "1rem" }}>
                 {isCorrect ? "CORRECT MATCHING!" : "INCORRECT MATCHING"}
              </p>
              
@@ -172,13 +169,13 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
                 {(advancedMetadata?.matrixA || []).map((text, idx) => (
                   <div key={idx} style={{ fontSize: "0.9rem", color: "var(--text-secondary)", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                     <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-                      <ReactMarkdown {...MD_OPTS}>{text}</ReactMarkdown>
+                      <ContentRenderer>{text}</ContentRenderer>
                     </div>
                     <span>→</span>
-                    <div style={{ color: "var(--accent)", display: "flex", gap: "0.25rem", flexWrap: "wrap", alignItems: "center" }}>
+                    <div style={{ color: "#10B981", display: "flex", gap: "0.25rem", flexWrap: "wrap", alignItems: "center" }}>
                       {(advancedMetadata?.matrixMapping?.[idx] || []).map((i, subIdx) => (
                         <div key={i} style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
-                          <ReactMarkdown {...MD_OPTS}>{advancedMetadata?.matrixB?.[i]}</ReactMarkdown>
+                          <ContentRenderer>{advancedMetadata?.matrixB?.[i]}</ContentRenderer>
                           {subIdx < (advancedMetadata?.matrixMapping?.[idx] || []).length - 1 && <span>,</span>}
                         </div>
                       ))}
@@ -188,7 +185,7 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
               </div>
 
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6, borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "1.5rem" }}>
-               <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+               <ContentRenderer fixEscapes>{back}</ContentRenderer>
              </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>

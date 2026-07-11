@@ -5,10 +5,29 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { ChevronRight, ChevronDown, Plus, Pencil, Trash2, GripVertical, Loader2, Check, X } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface TopicTreeProps {
-  courseId: Id<"courses">;
-  courseName: string;
+  courseId?: Id<"courses">;
+  courseName?: string;
+  examId?: string;
+  examName?: string;
   hierarchyLabels?: { l1: string; l2: string; l3: string };
   hierarchyDepth?: 1 | 2 | 3;
 }
@@ -18,8 +37,8 @@ const DEFAULT_LABELS = { l1: "Subject", l2: "Topic", l3: "Subtopic" };
 const SUBJECT_COLORS = ["var(--physics)", "var(--chemistry)", "var(--maths)", "var(--success)", "var(--info)"];
 
 // ── Inline editable name row ─────────────────────────────────────────────────
-function ItemRow({ label, color, depth = 0, onAdd, onDelete, onRename, children }: {
-  label: string; color?: string; depth?: number;
+function ItemRow({ id, label, color, depth = 0, onAdd, onDelete, onRename, children }: {
+  id: string; label: string; color?: string; depth?: number;
   onAdd?: () => void; onDelete?: () => void;
   onRename?: (name: string) => Promise<void>;
   children?: React.ReactNode;
@@ -28,6 +47,16 @@ function ItemRow({ label, color, depth = 0, onAdd, onDelete, onRename, children 
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(label);
   const [saving, setSaving] = useState(false);
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: "relative" as const,
+    zIndex: isDragging ? 1 : 0,
+  };
 
   const commitRename = async () => {
     if (!editValue.trim() || editValue === label) { setEditing(false); return; }
@@ -38,7 +67,7 @@ function ItemRow({ label, color, depth = 0, onAdd, onDelete, onRename, children 
   };
 
   return (
-    <div>
+    <div ref={setNodeRef} style={style}>
       <div
         style={{
           display: "flex", alignItems: "center", gap: "0.5rem",
@@ -49,9 +78,10 @@ function ItemRow({ label, color, depth = 0, onAdd, onDelete, onRename, children 
           borderRadius: "var(--radius-sm)",
           marginBottom: "0.25rem",
           transition: "var(--transition)",
+          boxShadow: isDragging ? "0 4px 12px rgba(0,0,0,0.1)" : "none",
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--border-accent)")}
-        onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+        onMouseEnter={(e) => (!isDragging && (e.currentTarget.style.borderColor = "var(--border-accent)"))}
+        onMouseLeave={(e) => (!isDragging && (e.currentTarget.style.borderColor = "var(--border)"))}
       >
         {children ? (
           <button onClick={() => setExpanded(!expanded)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, display: "flex" }}>
@@ -76,7 +106,9 @@ function ItemRow({ label, color, depth = 0, onAdd, onDelete, onRename, children 
           </span>
         )}
 
-        <GripVertical size={14} color="var(--text-muted)" style={{ cursor: "grab" }} />
+        <div {...attributes} {...listeners} style={{ display: "flex", cursor: "grab", touchAction: "none" }}>
+          <GripVertical size={14} color="var(--text-muted)" />
+        </div>
 
         {editing ? (
           <>
@@ -151,36 +183,50 @@ function AddRow({ placeholder, onAdd, depth = 0 }: {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export function TopicTree({ courseId, courseName, hierarchyLabels, hierarchyDepth = 3 }: TopicTreeProps) {
-  const tree = useQuery(api.subjects.getFullTree, { courseId });
+export function TopicTree({ courseId, courseName, examId, examName, hierarchyLabels, hierarchyDepth = 3 }: TopicTreeProps) {
+  const tree = useQuery(api.subjects.getFullTree, courseId ? { courseId } : { examId });
   const labels = { ...DEFAULT_LABELS, ...hierarchyLabels };
   const depth = hierarchyDepth ?? 3;
+  const displayName = courseName || examName || "Content";
 
   // Mutations
   const createSubject         = useMutation(api.subjects.createSubject);
   const createSubjectWithLeaf = useMutation(api.subjects.createSubjectWithAutoLeaf);
   const updateSubject  = useMutation(api.subjects.updateSubject);
   const deleteSubject  = useMutation(api.subjects.deleteSubject);
+  const bulkReorderSubjects = useMutation(api.subjects.bulkReorderSubjects);
+  
   const createTopic    = useMutation(api.subjects.createTopic);
   const updateTopic    = useMutation(api.subjects.updateTopic);
   const deleteTopic    = useMutation(api.subjects.deleteTopic);
+  const bulkReorderTopics = useMutation(api.subjects.bulkReorderTopics);
+  
   const createSubtopic = useMutation(api.subjects.createSubtopic);
   const updateSubtopic = useMutation(api.subjects.updateSubtopic);
   const deleteSubtopic = useMutation(api.subjects.deleteSubtopic);
+  const bulkReorderSubtopics = useMutation(api.subjects.bulkReorderSubtopics);
 
   const [addingSubject, setAddingSubject] = useState(false);
   const [addingTopicFor, setAddingTopicFor]    = useState<Id<"subjects"> | null>(null);
   const [addingSubtopicFor, setAddingSubtopicFor] = useState<Id<"topics"> | null>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   const handleAddSubject = async (name: string) => {
     const colorIdx = (tree?.length ?? 0) % SUBJECT_COLORS.length;
     const payload = {
-      courseId, name,
+      courseId: courseId!, name,
       slug: name.toLowerCase().replace(/\s+/g, "-"),
       color: SUBJECT_COLORS[colorIdx],
       order: (tree?.length ?? 0) + 1,
     };
-    // depth=1: auto-create hidden topic+subtopic leaves
+    if (examId) {
+      Object.assign(payload, { examId });
+      delete (payload as any).courseId;
+    }
     if (depth === 1) {
       await createSubjectWithLeaf(payload);
     } else {
@@ -207,96 +253,159 @@ export function TopicTree({ courseId, courseName, hierarchyLabels, hierarchyDept
     setAddingSubtopicFor(null);
   };
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !tree) return;
+
+    // Helper to extract id from our prefixed keys (e.g. "sub:id")
+    const getRealId = (id: string) => id.split(":")[1];
+
+    if (active.id.toString().startsWith("sub:")) {
+      const oldIndex = tree.findIndex((s: any) => `sub:${s._id}` === active.id);
+      const newIndex = tree.findIndex((s: any) => `sub:${s._id}` === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newArray = arrayMove(tree, oldIndex, newIndex);
+        await bulkReorderSubjects({
+          updates: newArray.map((s: any, idx) => ({ id: s._id as Id<"subjects">, order: idx + 1 }))
+        });
+      }
+    } else if (active.id.toString().startsWith("top:")) {
+      for (const subject of tree) {
+        const oldIndex = subject.topics.findIndex((t: any) => `top:${t._id}` === active.id);
+        const newIndex = subject.topics.findIndex((t: any) => `top:${t._id}` === over.id);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const newArray = arrayMove(subject.topics, oldIndex, newIndex);
+          await bulkReorderTopics({
+            updates: newArray.map((t: any, idx) => ({ id: t._id as Id<"topics">, order: idx + 1 }))
+          });
+          break;
+        }
+      }
+    } else if (active.id.toString().startsWith("st:")) {
+      for (const subject of tree) {
+        for (const topic of subject.topics) {
+          const oldIndex = topic.subtopics.findIndex((s: any) => `st:${s._id}` === active.id);
+          const newIndex = topic.subtopics.findIndex((s: any) => `st:${s._id}` === over.id);
+          if (oldIndex !== -1 && newIndex !== -1) {
+            const newArray = arrayMove(topic.subtopics, oldIndex, newIndex);
+            await bulkReorderSubtopics({
+              updates: newArray.map((s: any, idx) => ({ id: s._id as Id<"subtopics">, order: idx + 1 }))
+            });
+            break;
+          }
+        }
+      }
+    }
+  };
+
   if (tree === undefined) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "2rem", color: "var(--text-muted)" }}>
         <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
-        <span>Loading {courseName} hierarchy…</span>
+        <span>Loading {displayName} hierarchy…</span>
       </div>
     );
   }
 
+  // Sort by order ascending just to be safe
+  const sortedTree = [...tree].sort((a, b) => a.order - b.order);
+
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-          {courseName} — Content Hierarchy
-        </p>
-        <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={() => setAddingSubject(true)}>
-          <Plus size={14} /> Add {labels.l1}
-        </button>
-      </div>
-
-      {addingSubject && (
-        <AddRow placeholder={`${labels.l1} name (e.g. ${labels.l1 === "Module" ? "Atomic Structure" : "Physics"})`} depth={0} onAdd={handleAddSubject} />
-      )}
-
-      {tree.length === 0 && !addingSubject && (
-        <div className="card" style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
-          <p style={{ fontSize: "0.875rem" }}>No {labels.l1.toLowerCase()}s yet. Click &quot;+ Add {labels.l1}&quot; to start building the hierarchy.</p>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+          <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+            {displayName} — Content Hierarchy
+          </p>
+          <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={() => setAddingSubject(true)}>
+            <Plus size={14} /> Add {labels.l1}
+          </button>
         </div>
-      )}
 
-      {tree.map((subject) => (
-        <ItemRow
-          key={subject._id}
-          label={subject.name}
-          color={subject.color}
-          depth={0}
-          onRename={async (name) => { await updateSubject({ id: subject._id, name }); }}
-          onAdd={depth >= 2 ? () => setAddingTopicFor(subject._id) : undefined}
-          onDelete={async () => {
-            if (confirm(`Delete "${subject.name}" and all its ${labels.l2.toLowerCase()}s?`))
-              await deleteSubject({ id: subject._id });
-          }}
-        >
-          {/* depth=1: no children shown — hidden topic/subtopic exist in DB but are invisible */}
-          {depth >= 2 && (
-            <>
-              {addingTopicFor === subject._id && (
-                <AddRow placeholder={`${labels.l2} name`} depth={1} onAdd={(name) => handleAddTopic(subject._id, name, subject.topics.length)} />
-              )}
-              {subject.topics
-                .filter(t => t.slug !== "__default__")
-                .map((topic) => (
-                <ItemRow
-                  key={topic._id}
-                  label={topic.name}
-                  depth={1}
-                  onRename={async (name) => { await updateTopic({ id: topic._id, name }); }}
-                  onAdd={depth >= 3 ? () => setAddingSubtopicFor(topic._id) : undefined}
-                  onDelete={async () => {
-                    if (confirm(`Delete "${topic.name}" and all its ${labels.l3.toLowerCase()}s?`))
-                      await deleteTopic({ id: topic._id });
-                  }}
-                >
-                  {depth >= 3 && (
-                    <>
-                      {addingSubtopicFor === topic._id && (
-                        <AddRow placeholder={`${labels.l3} name`} depth={2} onAdd={(name) => handleAddSubtopic(topic._id, name, topic.subtopics.length)} />
-                      )}
-                      {topic.subtopics
-                        .filter(s => s.slug !== "__default__")
-                        .map((sub) => (
-                        <ItemRow
-                          key={sub._id}
-                          label={sub.name}
-                          depth={2}
-                          onRename={async (name) => { await updateSubtopic({ id: sub._id, name }); }}
-                          onDelete={async () => {
-                            if (confirm(`Delete subtopic "${sub.name}"?`))
-                              await deleteSubtopic({ id: sub._id });
-                          }}
-                        />
-                      ))}
-                    </>
-                  )}
-                </ItemRow>
-              ))}
-            </>
-          )}
-        </ItemRow>
-      ))}
-    </div>
+        {addingSubject && (
+          <AddRow placeholder={`${labels.l1} name (e.g. ${labels.l1 === "Module" ? "Atomic Structure" : "Physics"})`} depth={0} onAdd={handleAddSubject} />
+        )}
+
+        {sortedTree.length === 0 && !addingSubject && (
+          <div className="card" style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
+            <p style={{ fontSize: "0.875rem" }}>No {labels.l1.toLowerCase()}s yet. Click &quot;+ Add {labels.l1}&quot; to start building the hierarchy.</p>
+          </div>
+        )}
+
+        <SortableContext items={sortedTree.map(s => `sub:${s._id}`)} strategy={verticalListSortingStrategy}>
+          {sortedTree.map((subject) => {
+            const sortedTopics = [...subject.topics].sort((a, b) => a.order - b.order);
+            return (
+              <ItemRow
+                key={`sub:${subject._id}`}
+                id={`sub:${subject._id}`}
+                label={subject.name}
+                color={subject.color}
+                depth={0}
+                onRename={async (name) => { await updateSubject({ id: subject._id, name }); }}
+                onAdd={depth >= 2 ? () => setAddingTopicFor(subject._id) : undefined}
+                onDelete={async () => {
+                  if (confirm(`Delete "${subject.name}" and all its ${labels.l2.toLowerCase()}s?`))
+                    await deleteSubject({ id: subject._id });
+                }}
+              >
+                {depth >= 2 && (
+                  <>
+                    {addingTopicFor === subject._id && (
+                      <AddRow placeholder={`${labels.l2} name`} depth={1} onAdd={(name) => handleAddTopic(subject._id, name, sortedTopics.length)} />
+                    )}
+                    <SortableContext items={sortedTopics.filter((t: any) => t.slug !== "__default__").map((t: any) => `top:${t._id}`)} strategy={verticalListSortingStrategy}>
+                      {sortedTopics
+                        .filter((t: any) => t.slug !== "__default__")
+                        .map((topic: any) => {
+                        const sortedSubtopics = [...topic.subtopics].sort((a: any, b: any) => a.order - b.order);
+                        return (
+                          <ItemRow
+                            key={`top:${topic._id}`}
+                            id={`top:${topic._id}`}
+                            label={topic.name}
+                            depth={1}
+                            onRename={async (name) => { await updateTopic({ id: topic._id, name }); }}
+                            onAdd={depth >= 3 ? () => setAddingSubtopicFor(topic._id) : undefined}
+                            onDelete={async () => {
+                              if (confirm(`Delete "${topic.name}" and all its ${labels.l3.toLowerCase()}s?`))
+                                await deleteTopic({ id: topic._id });
+                            }}
+                          >
+                            {depth >= 3 && (
+                              <>
+                                {addingSubtopicFor === topic._id && (
+                                  <AddRow placeholder={`${labels.l3} name`} depth={2} onAdd={(name) => handleAddSubtopic(topic._id, name, sortedSubtopics.length)} />
+                                )}
+                                <SortableContext items={sortedSubtopics.filter((s: any) => s.slug !== "__default__").map((s: any) => `st:${s._id}`)} strategy={verticalListSortingStrategy}>
+                                  {sortedSubtopics
+                                    .filter((s: any) => s.slug !== "__default__")
+                                    .map((sub: any) => (
+                                    <ItemRow
+                                      key={`st:${sub._id}`}
+                                      id={`st:${sub._id}`}
+                                      label={sub.name}
+                                      depth={2}
+                                      onRename={async (name) => { await updateSubtopic({ id: sub._id, name }); }}
+                                      onDelete={async () => {
+                                        if (confirm(`Delete subtopic "${sub.name}"?`))
+                                          await deleteSubtopic({ id: sub._id });
+                                      }}
+                                    />
+                                  ))}
+                                </SortableContext>
+                              </>
+                            )}
+                          </ItemRow>
+                        )})}
+                    </SortableContext>
+                  </>
+                )}
+              </ItemRow>
+            )
+          })}
+        </SortableContext>
+      </div>
+    </DndContext>
   );
 }

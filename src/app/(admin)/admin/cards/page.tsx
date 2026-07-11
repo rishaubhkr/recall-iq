@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import { Search, Plus, Trash2, Loader2, FileText, Eye, EyeOff, Layers, X } from "lucide-react";
 import Link from "next/link";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import { FlashCard } from "@/components/cards/FlashCard";
+import { MCQCard } from "@/components/cards/MCQCard";
+import { ClozeCard } from "@/components/cards/ClozeCard";
 
 const TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
   flashcard:   { label: "FLA", color: "#60A5FA", bg: "rgba(96,165,250,0.12)" },
@@ -17,6 +20,20 @@ const TYPE_META: Record<string, { label: string; color: string; bg: string }> = 
 export default function AdminCardsPage() {
   const [search, setSearch] = useState("");
   const [filterPublished, setFilterPublished] = useState<boolean | undefined>(undefined);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
+  
+  const [previewCard, setPreviewCard] = useState<any | null>(null);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (previewCard) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => { document.body.style.overflow = "unset"; };
+  }, [previewCard]);
 
   const [selectedCourseId, setSelectedCourseId] = useState<Id<"courses"> | undefined>(undefined);
   const [selectedSubjectId, setSelectedSubjectId] = useState<Id<"subjects"> | undefined>(undefined);
@@ -25,32 +42,47 @@ export default function AdminCardsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<Id<"cards">>>(new Set());
   const [isBulkActing, setIsBulkActing] = useState(false);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterPublished, selectedCourseId, selectedSubjectId, selectedTopicId, selectedSubtopicId]);
+
   const courses = useQuery(api.courses.listAllCourses);
   const subjects = useQuery(api.subjects.listSubjectsByCourse, selectedCourseId ? { courseId: selectedCourseId } : "skip");
   const topics = useQuery(api.subjects.listTopicsBySubject, selectedSubjectId ? { subjectId: selectedSubjectId } : "skip");
   const subtopics = useQuery(api.subjects.listSubtopicsByTopic, selectedTopicId ? { topicId: selectedTopicId } : "skip");
 
-  const cards = useQuery(api.cards.adminListCards, { 
-    isPublished: filterPublished,
-    courseId: selectedCourseId,
-    subjectId: selectedSubjectId,
-    topicId: selectedTopicId,
-    subtopicId: selectedSubtopicId,
-  });
+  const {
+    results,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
+    api.cards.adminListCards,
+    {
+      isPublished: filterPublished,
+      courseId: selectedCourseId,
+      subjectId: selectedSubjectId,
+      topicId: selectedTopicId,
+      subtopicId: selectedSubtopicId,
+    },
+    { initialNumItems: 50 }
+  );
+
   const togglePublish = useMutation(api.cards.togglePublish);
   const deleteCard    = useMutation(api.cards.deleteCard);
   const bulkPublish   = useMutation(api.cards.bulkPublish);
   const bulkDelete    = useMutation(api.cards.bulkDeleteCards);
 
-  const isLoading = cards === undefined;
+  const isLoading = status === "LoadingFirstPage";
+  const isLoadingMore = status === "LoadingMore";
 
-  const filtered = (cards ?? []).filter((c) => {
+  // Client-side search within the currently loaded paginated results
+  const filtered = results.filter((c: any) => {
     const q = search.toLowerCase();
-    return !q || c.front.toLowerCase().includes(q) || c.tags.some((t) => t.includes(q));
+    return !q || c.front.toLowerCase().includes(q) || c.tags.some((t: string) => t.toLowerCase().includes(q));
   });
 
-  const totalPublished = (cards ?? []).filter(c => c.isPublished).length;
-  const totalDrafts    = (cards ?? []).filter(c => !c.isPublished).length;
+  const totalPublished = results.filter((c: any) => c.isPublished).length;
+  const totalDrafts    = results.filter((c: any) => !c.isPublished).length;
 
   const handleDelete = async (id: Id<"cards">) => {
     if (!confirm("Delete this card? This cannot be undone.")) return;
@@ -158,8 +190,8 @@ export default function AdminCardsPage() {
         <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.75rem", flexWrap: "wrap" }}>
           <div className="stat-pill">
             <Layers size={14} style={{ color: "var(--text-muted)" }} />
-            <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{cards?.length ?? 0}</span>
-            <span style={{ color: "var(--text-muted)" }}>total</span>
+            <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{results.length}</span>
+            <span style={{ color: "var(--text-muted)" }}>loaded</span>
           </div>
           <div className="stat-pill">
             <Eye size={14} style={{ color: "#34D399" }} />
@@ -280,7 +312,7 @@ export default function AdminCardsPage() {
 
       {/* Card rows */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-        {filtered.map((card) => {
+        {filtered.map((card: any) => {
           const meta = TYPE_META[card.type] ?? {
             label: card.type.slice(0, 3).toUpperCase(),
             color: "var(--text-muted)",
@@ -347,26 +379,32 @@ export default function AdminCardsPage() {
                 </div>
               </div>
 
-              {/* Publish Badge */}
-              <div style={{
-                fontSize: "0.7rem", fontWeight: 700, padding: "0.25rem 0.65rem",
-                borderRadius: "8px", flexShrink: 0,
-                background: card.isPublished ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.04)",
-                color: card.isPublished ? "#34D399" : "var(--text-muted)",
-                border: `1px solid ${card.isPublished ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.06)"}`,
-              }}>
+              {/* Publish Toggle */}
+              <button 
+                onClick={() => togglePublish({ id: card._id })}
+                title={card.isPublished ? "Click to unpublish" : "Click to publish"}
+                style={{
+                  fontSize: "0.7rem", fontWeight: 700, padding: "0.25rem 0.65rem",
+                  borderRadius: "8px", flexShrink: 0, cursor: "pointer",
+                  background: card.isPublished ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.04)",
+                  color: card.isPublished ? "#34D399" : "var(--text-muted)",
+                  border: `1px solid ${card.isPublished ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.06)"}`,
+                  transition: "all 0.2s"
+                }}>
                 {card.isPublished ? "Live" : "Draft"}
-              </div>
+              </button>
 
               {/* Actions */}
               <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0, alignItems: "center" }}>
                 <button
                   className="action-btn"
-                  onClick={() => togglePublish({ id: card._id })}
-                  title={card.isPublished ? "Unpublish" : "Publish"}
-                  style={{ color: card.isPublished ? "#34D399" : "var(--text-muted)" }}
+                  onClick={() => setPreviewCard(card)}
+                  title="Preview Card"
+                  style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
                 >
-                  {card.isPublished ? <Eye size={16} /> : <EyeOff size={16} />}
+                  <Eye size={16} />
                 </button>
                 <button
                   className="action-btn"
@@ -383,6 +421,20 @@ export default function AdminCardsPage() {
           );
         })}
       </div>
+
+      {/* Pagination Controls */}
+      {!isLoading && status === "CanLoadMore" && (
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "1rem", marginTop: "2rem" }}>
+          <button 
+            className="btn btn-ghost" 
+            onClick={() => loadMore(50)}
+            disabled={isLoadingMore}
+            style={{ padding: "0.8rem 2rem", borderRadius: "10px", background: "rgba(255,255,255,0.05)" }}
+          >
+            {isLoadingMore ? <Loader2 size={16} className="animate-spin" /> : "Load More Cards"}
+          </button>
+        </div>
+      )}
 
       {/* Bulk Actions Floating Bar */}
       {selectedIds.size > 0 && (
@@ -437,6 +489,86 @@ export default function AdminCardsPage() {
           >
             <X size={18} />
           </button>
+        </div>
+      )}
+
+      {/* Preview Dialog Modal */}
+      {previewCard && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+          background: "rgba(0,0,0,0.8)", backdropFilter: "blur(5px)",
+          display: "flex", justifyContent: "center", alignItems: "center",
+          zIndex: 9999, padding: "2rem"
+        }} onClick={() => setPreviewCard(null)}>
+          <div style={{
+            position: "relative", width: "100%", maxWidth: "800px",
+            background: "var(--bg-primary)",
+            borderRadius: "24px",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            animation: "fadeIn 0.2s ease-out",
+            overflow: "hidden" // Keeps everything, including scrollbar, within rounded corners
+          }} onClick={e => e.stopPropagation()}>
+            
+            {/* Floating Close Button */}
+            <button 
+              onClick={() => setPreviewCard(null)}
+              style={{
+                position: "absolute", top: "1.5rem", right: "2rem", // Moved away from scrollbar
+                background: "var(--bg-elevated)", border: "1px solid var(--border)", 
+                color: "var(--text-primary)", cursor: "pointer",
+                padding: "0.5rem", borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.2s", zIndex: 50
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--border)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+            >
+              <X size={18} />
+            </button>
+
+            <style>{`
+              @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+              .preview-scrollbar::-webkit-scrollbar { width: 8px; }
+              .preview-scrollbar::-webkit-scrollbar-track { background: transparent; margin: 1.5rem 0; }
+              .preview-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
+              .preview-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+            `}</style>
+            
+            {/* Scroll Container (No padding so scrollbar is at the extreme edge) */}
+            <div className="preview-scrollbar" style={{
+              width: "100%", maxHeight: "85vh", overflowY: "auto",
+            }}>
+              {/* Inner Wrapper (Provides the generous padding) */}
+              <div style={{ padding: "4rem 3.5rem 3.5rem 3.5rem" }}>
+                {previewCard.type === "flashcard" && (
+                  <FlashCard 
+                    front={previewCard.front} 
+                    back={previewCard.back} 
+                    onRate={() => {}} 
+                  />
+                )}
+                
+                {previewCard.type === "mcq" && (
+                  <MCQCard 
+                    front={previewCard.front} 
+                    options={previewCard.options || []} 
+                    correctOption={previewCard.correctOption ?? 0}
+                    whyPrompt={previewCard.whyPrompt}
+                    onRate={() => {}} 
+                  />
+                )}
+                
+                {previewCard.type === "cloze" && (
+                  <ClozeCard 
+                    front={previewCard.front} 
+                    clozeTemplate={previewCard.clozeTemplate || ""}
+                    whyPrompt={previewCard.whyPrompt}
+                    onRate={() => {}} 
+                  />
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

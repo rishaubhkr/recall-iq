@@ -27,9 +27,9 @@ export default function NewCardPage() {
 
   // Flatten tree → subtopic options for select
   const subtopicOptions: { label: string; id: Id<"subtopics"> }[] = [];
-  tree?.forEach((subject) =>
-    subject.topics.forEach((topic) =>
-      topic.subtopics.forEach((sub) => {
+  tree?.forEach((subject: any) =>
+    subject.topics.forEach((topic: any) =>
+      topic.subtopics.forEach((sub: any) => {
         let label = subject.name;
         if (topic.name !== "__default__") label += ` → ${topic.name}`;
         if (sub.name !== "__default__") label += ` → ${sub.name}`;

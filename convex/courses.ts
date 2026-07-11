@@ -31,6 +31,49 @@ export const getCourse = query({
   },
 });
 
+// Get real-time stats for a course (modules, cards, students)
+export const getCourseStats = query({
+  args: { courseId: v.id("courses") },
+  handler: async (ctx, args) => {
+    const subjects = await ctx.db
+      .query("subjects")
+      .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
+      .collect();
+
+    let cardCount = 0;
+    for (const s of subjects) {
+      const topics = await ctx.db
+        .query("topics")
+        .withIndex("by_subject", (q) => q.eq("subjectId", s._id))
+        .collect();
+      for (const t of topics) {
+        const subs = await ctx.db
+          .query("subtopics")
+          .withIndex("by_topic", (q) => q.eq("topicId", t._id))
+          .collect();
+        for (const sub of subs) {
+          const cards = await ctx.db
+            .query("cards")
+            .withIndex("by_subtopic", (q) => q.eq("subtopicId", sub._id))
+            .collect();
+          cardCount += cards.length;
+        }
+      }
+    }
+
+    const enrollments = await ctx.db
+      .query("enrollments")
+      .withIndex("by_course", (q) => q.eq("courseId", args.courseId))
+      .collect();
+
+    return {
+      moduleCount: subjects.length,
+      cardCount,
+      studentCount: enrollments.length,
+    };
+  },
+});
+
 // ─── Admin Mutations ────────────────────────────────────────────────────────
 
 export const createCourse = mutation({
@@ -75,3 +118,48 @@ export const updateCourse = mutation({
   },
 });
 
+export const deleteCourse = mutation({
+  args: { id: v.id("courses") },
+  handler: async (ctx, args) => {
+    // 1. Delete cards
+    const cards = await ctx.db
+      .query("cards")
+      .withIndex("by_course", (q) => q.eq("courseId", args.id))
+      .collect();
+    for (const c of cards) await ctx.db.delete(c._id);
+
+    // 2. Delete subjects, topics, and subtopics
+    const subjects = await ctx.db
+      .query("subjects")
+      .withIndex("by_course", (q) => q.eq("courseId", args.id))
+      .collect();
+      
+    for (const s of subjects) {
+      const topics = await ctx.db
+        .query("topics")
+        .withIndex("by_subject", (q) => q.eq("subjectId", s._id))
+        .collect();
+        
+      for (const t of topics) {
+        const subtopics = await ctx.db
+          .query("subtopics")
+          .withIndex("by_topic", (q) => q.eq("topicId", t._id))
+          .collect();
+        for (const sub of subtopics) await ctx.db.delete(sub._id);
+        
+        await ctx.db.delete(t._id);
+      }
+      await ctx.db.delete(s._id);
+    }
+
+    // 3. Delete enrollments
+    const enrollments = await ctx.db
+      .query("enrollments")
+      .withIndex("by_course", (q) => q.eq("courseId", args.id))
+      .collect();
+    for (const e of enrollments) await ctx.db.delete(e._id);
+
+    // 4. Finally delete the course
+    await ctx.db.delete(args.id);
+  },
+});

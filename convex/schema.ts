@@ -67,6 +67,9 @@ export default defineSchema({
   // ─── Cards ─────────────────
   cards: defineTable({
     subtopicId: v.optional(v.id("subtopics")),
+    topicId: v.optional(v.id("topics")),
+    subjectId: v.optional(v.id("subjects")),
+    courseId: v.optional(v.id("courses")),
     type: v.union(
       v.literal("flashcard"),    // Retrieval Practice
       v.literal("mcq"),          // Interleaving-friendly
@@ -100,6 +103,9 @@ export default defineSchema({
     ownerId: v.optional(v.string()), // Clerk user ID (student) for personal cards
   })
     .index("by_subtopic", ["subtopicId"])
+    .index("by_topic", ["topicId"])
+    .index("by_subject", ["subjectId"])
+    .index("by_course", ["courseId"])
     .index("by_tier", ["tier"])
     .index("by_published", ["isPublished"])
     .index("by_owner", ["ownerId"]),

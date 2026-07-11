@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { ConfidenceRating } from "./ConfidenceRating";
@@ -20,7 +18,6 @@ interface MultiSelectCardProps {
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
 
-const MD_OPTS = { remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] };
 
 export function MultiSelectCard({ front, options, advancedMetadata, back, onRate }: MultiSelectCardProps) {
   const correctOptions = (advancedMetadata?.correctOptions || []).map(idx => Number(idx)); // Ensure numbers
@@ -58,7 +55,7 @@ export function MultiSelectCard({ front, options, advancedMetadata, back, onRate
       {/* Question */}
       <div className="card" style={{ padding: "2.5rem", background: "var(--bg-elevated)", border: "4px solid #37464F", borderRadius: "24px" }}>
         <div style={{ fontSize: "1.75rem", fontWeight: 600, textAlign: "center", lineHeight: 1.4 }}>
-          <ReactMarkdown {...MD_OPTS}>{front.replace(/\\n/g, '\n')}</ReactMarkdown>
+          <ContentRenderer fixEscapes>{front}</ContentRenderer>
         </div>
       </div>
 
@@ -83,9 +80,9 @@ export function MultiSelectCard({ front, options, advancedMetadata, back, onRate
 
           if (revealed) {
             if (isCorrect) {
-              borderColor = "var(--accent)";
+              borderColor = "#10B981";
               bg = "rgba(88, 204, 2, 0.1)";
-              icon = <CheckSquare size={24} color="var(--accent)" />;
+              icon = <CheckSquare size={24} color="#10B981" />;
             } else if (isSelected) {
               borderColor = "#FF4B4B";
               bg = "rgba(255, 75, 75, 0.1)";
@@ -117,7 +114,7 @@ export function MultiSelectCard({ front, options, advancedMetadata, back, onRate
             >
               {icon}
               <div style={{ flex: 1, fontSize: "1.1rem", fontWeight: 700 }}>
-                <ReactMarkdown {...MD_OPTS}>{opt}</ReactMarkdown>
+                <ContentRenderer>{opt}</ContentRenderer>
               </div>
             </button>
           );
@@ -135,12 +132,12 @@ export function MultiSelectCard({ front, options, advancedMetadata, back, onRate
         </button>
       ) : (
         <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isAllCorrect ? "var(--accent)" : "#FF4B4B"}` }}>
-             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isAllCorrect ? "var(--accent)" : "#FF4B4B", marginBottom: "0.5rem" }}>
+          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isAllCorrect ? "#10B981" : "#FF4B4B"}` }}>
+             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isAllCorrect ? "#10B981" : "#FF4B4B", marginBottom: "0.5rem" }}>
                 {isAllCorrect ? "CORRECT!" : "INCORRECT"}
              </p>
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6 }}>
-               <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+               <ContentRenderer fixEscapes>{back}</ContentRenderer>
              </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>

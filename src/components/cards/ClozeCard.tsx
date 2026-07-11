@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { RatingButtons } from "./RatingButtons";
 import { HelpCircle, Sparkles } from "lucide-react";
+import { fuzzyMatch } from "@/lib/fuzzy";
 
 interface ClozeCardProps {
   front: string;
@@ -17,34 +19,13 @@ interface ClozeCardProps {
 const MD_OPTS = { 
   remarkPlugins: [remarkMath], 
   rehypePlugins: [rehypeKatex],
+  allowedElements: ['span', 'strong', 'em', 'del', 'code', 'math', 'inlineMath', 'sub', 'sup', 'text'],
+  unwrapDisallowed: true,
   components: {
-    p: ({ children }: any) => <>{children}</>
+    p: ({ children }: any) => <>{children}</>,
+    br: () => <> </>
   }
 };
-
-const NUMBER_WORDS: Record<string, string> = {
-  "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
-  "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10"
-};
-
-function fuzzyNormalize(s: string): string {
-  let val = s.trim().toLowerCase();
-  
-  // Standardize square root representations
-  val = val.replace(/(?:\\sqrt\s*\{|\\sqrt\s*|√|sqrt\(|root\(|root)/g, "root");
-  
-  // Standardize pi
-  val = val.replace(/(?:\\pi|π)/g, "pi");
-  
-  // Standardize theta
-  val = val.replace(/(?:\\theta|θ)/g, "theta");
-  
-  // Remove spaces, backslashes, braces, parentheses, and punctuation
-  val = val.replace(/[\s\\{}()$.,\/#!%\^&\*;:_`~-]/g, "");
-  
-  // Convert word to number if exists in our map
-  return NUMBER_WORDS[val] || val;
-}
 
 interface ClozeToken {
   type: "text" | "blank";
@@ -62,6 +43,7 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
   
   const [revealed, setRevealed] = useState(false);
   const [isCorrectMap, setIsCorrectMap] = useState<Record<number, boolean>>({});
+  const [isTypoMap, setIsTypoMap] = useState<Record<number, boolean>>({});
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
@@ -95,15 +77,18 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
 
   const handleCheck = () => {
     const correctMap: Record<number, boolean> = {};
+    const typoMap: Record<number, boolean> = {};
     let allCorrect = true;
     
     blanks.forEach(b => {
-      const isBlankCorrect = fuzzyNormalize(userInputs[b.index] || "") === fuzzyNormalize(b.answer);
-      correctMap[b.index] = isBlankCorrect;
-      if (!isBlankCorrect) allCorrect = false;
+      const matchResult = fuzzyMatch(userInputs[b.index] || "", b.answer);
+      correctMap[b.index] = matchResult.isCorrect;
+      typoMap[b.index] = matchResult.isTypo;
+      if (!matchResult.isCorrect) allCorrect = false;
     });
     
     setIsCorrectMap(correctMap);
+    setIsTypoMap(typoMap);
     setIsCorrect(allCorrect);
     setRevealed(true);
   };
@@ -116,6 +101,7 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
     setRevealed(false);
     setIsCorrect(null);
     setIsCorrectMap({});
+    setIsTypoMap({});
   };
 
   const insertSymbol = (symbol: string) => {
@@ -158,34 +144,36 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
       <div className="card" style={{ padding: "2.5rem", background: "var(--bg-elevated)", border: "4px solid #2A3C44", borderRadius: "24px" }}>
         <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.8rem", color: "var(--accent)", marginBottom: "1rem", letterSpacing: "0.1em" }}>Fill in the blank</p>
         <div style={{ fontSize: "1.5rem", fontWeight: 700, lineHeight: 1.5 }}>
-          <ReactMarkdown {...MD_OPTS}>
+          <ContentRenderer fixEscapes>
             {front.replace(/(?:\[\[|\{\{(?:c\d::)?)(.+?)(?:\]\]|\}\})/g, "_____")}
-          </ReactMarkdown>
+          </ContentRenderer>
         </div>
       </div>
 
       {/* Input Inline Area */}
       <div className="card" style={{ 
         padding: "2rem", 
-        display: "flex", 
-        flexWrap: "wrap", 
-        alignItems: "center", 
-        gap: "0.75rem", 
         borderRadius: "24px", 
         border: "4px solid #37464F",
-        lineHeight: 1.8
+        lineHeight: 2.2,
+        fontSize: "1.25rem",
+        fontWeight: 600,
+        whiteSpace: "normal"
       }}>
         {tokens.map((token, idx) => {
           if (token.type === "text") {
+            // Strip newlines AND any leading/trailing multiple spaces to prevent Markdown code blocks
+            const inlineContent = token.content.replace(/[\r\n]+/g, " ").replace(/\s{2,}/g, " ");
             return (
-              <span key={idx} style={{ fontSize: "1.25rem", fontWeight: 600 }}>
-                <ReactMarkdown {...MD_OPTS}>{token.content}</ReactMarkdown>
+              <span key={idx} className="cloze-text-chunk" style={{ fontSize: "1.25rem", fontWeight: 600 }}>
+                <ReactMarkdown {...MD_OPTS}>{inlineContent}</ReactMarkdown>
               </span>
             );
           } else {
             const bIdx = token.blankIndex!;
             const isBlankRevealed = revealed;
             const isBlankCorrect = isCorrectMap[bIdx];
+            const isBlankTypo = isTypoMap[bIdx];
             
             return (
               <span key={idx} style={{ display: "inline-block" }}>
@@ -205,25 +193,46 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
                       color: "var(--text-primary)",
                       fontFamily: "var(--font-mono)",
                       fontSize: "1.25rem",
-                      padding: "0.4rem 0.8rem",
-                      minWidth: Math.max(110, token.content.length * 12),
+                      padding: "0.4rem 0.6rem",
+                      minWidth: Math.max(50, token.content.length * 12),
+                      width: Math.max(50, token.content.length * 12),
                       outline: "none",
                       transition: "all 0.2s",
-                      boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)"
+                      boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)",
+                      verticalAlign: "middle"
                     }}
                   />
                 ) : (
-                  <span style={{
-                    padding: "0.4rem 0.8rem",
-                    border: `3px solid ${isBlankCorrect ? "var(--accent)" : "#FF4B4B"}`,
-                    borderRadius: "12px",
-                    background: isBlankCorrect ? "rgba(88, 204, 2, 0.1)" : "rgba(255, 75, 75, 0.1)",
-                    fontFamily: "var(--font-mono)",
-                    color: isBlankCorrect ? "var(--accent)" : "#FF4B4B",
-                    fontWeight: 600,
-                    fontSize: "1.25rem"
-                  }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "0.4rem 0.6rem",
+                      border: `3px solid ${isBlankCorrect ? (isBlankTypo ? "var(--accent-amber)" : "#10B981") : "#FF4B4B"}`,
+                      borderRadius: "12px",
+                      background: "var(--bg-primary)",
+                      color: isBlankCorrect ? (isBlankTypo ? "var(--accent-amber)" : "#10B981") : "#FF4B4B",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "1.25rem",
+                      fontWeight: 600,
+                      verticalAlign: "middle",
+                      position: "relative"
+                    }}
+                  >
                     {token.content}
+                    {isBlankTypo && (
+                      <span style={{
+                        position: "absolute",
+                        bottom: "-20px",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        fontSize: "0.6rem",
+                        color: "var(--accent-amber)",
+                        whiteSpace: "nowrap",
+                        textTransform: "uppercase"
+                      }}>
+                        Typo
+                      </span>
+                    )}
                   </span>
                 )}
               </span>
@@ -291,12 +300,12 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
         </button>
       ) : (
         <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "var(--accent)" : "#FF4B4B"}` }}>
-             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "var(--accent)" : "#FF4B4B", marginBottom: "0.5rem" }}>
+          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "#10B981" : "#FF4B4B"}` }}>
+             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "#10B981" : "#FF4B4B", marginBottom: "0.5rem" }}>
                 {isCorrect ? "EXCELLENT!" : "KEEP PRACTICING"}
              </p>
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6 }}>
-               <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+               <ContentRenderer fixEscapes>{back}</ContentRenderer>
              </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>

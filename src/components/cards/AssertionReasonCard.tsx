@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -19,7 +17,6 @@ interface AssertionReasonCardProps {
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
 
-const MD_OPTS = { remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] };
 
 const KEYS = {
   A: "Both Assertion and Reason are true, and Reason is the correct explanation of Assertion.",
@@ -53,13 +50,13 @@ export function AssertionReasonCard({ front, back, advancedMetadata, onRate }: A
         <div className="card" style={{ padding: "2rem", background: "var(--bg-elevated)", border: "2px solid #37464F", borderRadius: "20px" }}>
           <p style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.75rem", marginBottom: "0.75rem", letterSpacing: "0.1em" }}>ASSERTION</p>
           <div style={{ fontSize: "1.25rem", fontWeight: 700 }}>
-            <ReactMarkdown {...MD_OPTS}>{(advancedMetadata?.assertion || "").replace(/\\n/g, '\n')}</ReactMarkdown>
+            <ContentRenderer fixEscapes>{advancedMetadata?.assertion || ""}</ContentRenderer>
           </div>
         </div>
         <div className="card" style={{ padding: "2rem", background: "var(--bg-elevated)", border: "2px solid #37464F", borderRadius: "20px" }}>
           <p style={{ fontWeight: 600, color: "var(--accent-amber)", fontSize: "0.75rem", marginBottom: "0.75rem", letterSpacing: "0.1em" }}>REASON</p>
           <div style={{ fontSize: "1.25rem", fontWeight: 700 }}>
-            <ReactMarkdown {...MD_OPTS}>{(advancedMetadata?.reason || "").replace(/\\n/g, '\n')}</ReactMarkdown>
+            <ContentRenderer fixEscapes>{advancedMetadata?.reason || ""}</ContentRenderer>
           </div>
         </div>
       </div>
@@ -82,7 +79,7 @@ export function AssertionReasonCard({ front, back, advancedMetadata, onRate }: A
 
           if (revealed) {
             if (isTarget) {
-              borderColor = "var(--accent)";
+              borderColor = "#10B981";
               bg = "rgba(88, 204, 2, 0.1)";
             } else if (isSelected) {
               borderColor = "#FF4B4B";
@@ -136,12 +133,12 @@ export function AssertionReasonCard({ front, back, advancedMetadata, onRate }: A
         </button>
       ) : (
         <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "var(--accent)" : "#FF4B4B"}` }}>
-             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "var(--accent)" : "#FF4B4B", marginBottom: "0.5rem" }}>
+          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "#10B981" : "#FF4B4B"}` }}>
+             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "#10B981" : "#FF4B4B", marginBottom: "0.5rem" }}>
                 {isCorrect ? "CORRECT!" : "INCORRECT"}
              </p>
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6 }}>
-               <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+               <ContentRenderer fixEscapes>{back}</ContentRenderer>
              </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>

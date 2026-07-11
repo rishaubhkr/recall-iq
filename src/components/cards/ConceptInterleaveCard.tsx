@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { Link2 } from "lucide-react";
@@ -13,8 +11,6 @@ interface ConceptInterleaveCardProps {
   back: string;  // Detailed explanation of the link
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
-
-const MD_OPTS = { remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] };
 
 export function ConceptInterleaveCard({ front, back, onRate }: ConceptInterleaveCardProps) {
   const [revealed, setRevealed] = useState(false);
@@ -38,7 +34,7 @@ export function ConceptInterleaveCard({ front, back, onRate }: ConceptInterleave
         
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.5rem", marginTop: "1rem" }}>
            <div style={{ fontSize: "1.5rem", fontWeight: 600, textAlign: "center" }}>
-             <ReactMarkdown {...MD_OPTS}>{front.replace(/\\n/g, '\n')}</ReactMarkdown>
+             <ContentRenderer fixEscapes>{front}</ContentRenderer>
            </div>
            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", fontWeight: 500 }}>Explain the fundamental connection between these terms.</p>
         </div>
@@ -83,7 +79,7 @@ export function ConceptInterleaveCard({ front, back, onRate }: ConceptInterleave
           <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", border: "2px solid var(--accent)" }}>
              <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: "var(--accent)", marginBottom: "1rem", letterSpacing: "0.1em" }}>THE LINK</p>
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6 }}>
-               <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+               <ContentRenderer fixEscapes>{back}</ContentRenderer>
              </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>

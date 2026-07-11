@@ -89,6 +89,17 @@ export const deleteSubject = mutation({
   },
 });
 
+export const bulkReorderSubjects = mutation({
+  args: {
+    updates: v.array(v.object({ id: v.id("subjects"), order: v.number() })),
+  },
+  handler: async (ctx, args) => {
+    await Promise.all(
+      args.updates.map((update) => ctx.db.patch(update.id, { order: update.order }))
+    );
+  },
+});
+
 // ─── Topics ──────────────────────────────────────────────────────────────────
 export const listTopicsBySubject = query({
   args: { subjectId: v.id("subjects") },
@@ -130,6 +141,17 @@ export const deleteTopic = mutation({
   },
 });
 
+export const bulkReorderTopics = mutation({
+  args: {
+    updates: v.array(v.object({ id: v.id("topics"), order: v.number() })),
+  },
+  handler: async (ctx, args) => {
+    await Promise.all(
+      args.updates.map((update) => ctx.db.patch(update.id, { order: update.order }))
+    );
+  },
+});
+
 // ─── Subtopics ────────────────────────────────────────────────────────────────
 export const listSubtopicsByTopic = query({
   args: { topicId: v.id("topics") },
@@ -168,6 +190,17 @@ export const deleteSubtopic = mutation({
   args: { id: v.id("subtopics") },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id);
+  },
+});
+
+export const bulkReorderSubtopics = mutation({
+  args: {
+    updates: v.array(v.object({ id: v.id("subtopics"), order: v.number() })),
+  },
+  handler: async (ctx, args) => {
+    await Promise.all(
+      args.updates.map((update) => ctx.db.patch(update.id, { order: update.order }))
+    );
   },
 });
 

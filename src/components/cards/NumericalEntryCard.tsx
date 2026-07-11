@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -17,8 +15,6 @@ interface NumericalEntryCardProps {
   };
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
-
-const MD_OPTS = { remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] };
 
 export function NumericalEntryCard({ front, back, advancedMetadata, onRate }: NumericalEntryCardProps) {
   const [value, setValue] = useState("");
@@ -48,7 +44,7 @@ export function NumericalEntryCard({ front, back, advancedMetadata, onRate }: Nu
       {/* Question */}
       <div className="card" style={{ padding: "2.5rem", background: "var(--bg-elevated)", border: "4px solid #37464F", borderRadius: "24px" }}>
         <div style={{ fontSize: "1.75rem", fontWeight: 600, textAlign: "center", lineHeight: 1.4 }}>
-          <ReactMarkdown {...MD_OPTS}>{front.replace(/\\n/g, '\n')}</ReactMarkdown>
+          <ContentRenderer fixEscapes>{front}</ContentRenderer>
         </div>
       </div>
 
@@ -98,12 +94,12 @@ export function NumericalEntryCard({ front, back, advancedMetadata, onRate }: Nu
             background: "var(--bg-elevated)", 
             padding: "2rem", 
             borderRadius: "24px", 
-            borderLeft: `8px solid ${isCorrect ? "var(--accent)" : "#FF4B4B"}`,
+            borderLeft: `8px solid ${isCorrect ? "#10B981" : "#FF4B4B"}`,
             position: "relative"
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-              {isCorrect ? <CheckCircle2 color="var(--accent)" /> : <XCircle color="#FF4B4B" />}
-              <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "1rem", color: isCorrect ? "var(--accent)" : "#FF4B4B" }}>
+              {isCorrect ? <CheckCircle2 color="#10B981" /> : <XCircle color="#FF4B4B" />}
+              <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "1rem", color: isCorrect ? "#10B981" : "#FF4B4B" }}>
                 {isCorrect ? "CORRECT" : "INCORRECT"}
               </p>
             </div>
@@ -115,10 +111,10 @@ export function NumericalEntryCard({ front, back, advancedMetadata, onRate }: Nu
               </div>
               <div>
                 <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: "0.5rem" }}>Correct Answer</p>
-                <p style={{ fontSize: "1.5rem", fontWeight: 600, color: "var(--accent)" }}>{advancedMetadata?.numericalAnswer}</p>
+                <p style={{ fontSize: "1.5rem", fontWeight: 600, color: "#10B981" }}>{advancedMetadata?.numericalAnswer}</p>
               </div>
               <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "1.5rem", color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6 }}>
-                <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+                <ContentRenderer fixEscapes>{back}</ContentRenderer>
               </div>
             </div>
           </div>

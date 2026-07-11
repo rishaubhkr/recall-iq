@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { CheckCircle2, XCircle, ArrowDown } from "lucide-react";
@@ -18,7 +16,6 @@ interface SequencingCardProps {
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
 
-const MD_OPTS = { remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] };
 
 export function SequencingCard({ front, back, options, advancedMetadata, onRate }: SequencingCardProps) {
   const [selectedOrder, setSelectedOrder] = useState<number[]>([]);
@@ -51,7 +48,7 @@ export function SequencingCard({ front, back, options, advancedMetadata, onRate 
       <div className="card" style={{ padding: "2.5rem", background: "var(--bg-elevated)", border: "4px solid #37464F", borderRadius: "24px" }}>
         <p style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.75rem", marginBottom: "1rem", letterSpacing: "0.1em", textAlign: "center" }}>SEQUENCING TASK</p>
         <div style={{ fontSize: "1.75rem", fontWeight: 600, textAlign: "center", lineHeight: 1.4 }}>
-          <ReactMarkdown {...MD_OPTS}>{front.replace(/\\n/g, '\n')}</ReactMarkdown>
+          <ContentRenderer fixEscapes>{front}</ContentRenderer>
         </div>
       </div>
 
@@ -62,7 +59,7 @@ export function SequencingCard({ front, back, options, advancedMetadata, onRate 
           {selectedOrder.map((idx, pos) => (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <div style={{ padding: "0.5rem 1rem", background: "var(--accent)", color: "#000", borderRadius: "8px", fontWeight: 600, fontSize: "0.9rem" }}>
-                <ReactMarkdown {...MD_OPTS}>{options[idx]}</ReactMarkdown>
+                <ContentRenderer>{options[idx]}</ContentRenderer>
               </div>
               {pos < selectedOrder.length - 1 && <ArrowDown size={14} color="var(--text-muted)" />}
             </div>
@@ -90,7 +87,7 @@ export function SequencingCard({ front, back, options, advancedMetadata, onRate 
                     transition: "all 0.2s"
                   }}
                 >
-                  <ReactMarkdown {...MD_OPTS}>{opt}</ReactMarkdown>
+                  <ContentRenderer>{opt}</ContentRenderer>
                 </button>
               );
             })}
@@ -116,8 +113,8 @@ export function SequencingCard({ front, back, options, advancedMetadata, onRate 
         </div>
       ) : (
         <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "var(--accent)" : "#FF4B4B"}` }}>
-             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "var(--accent)" : "#FF4B4B", marginBottom: "1rem" }}>
+          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "#10B981" : "#FF4B4B"}` }}>
+             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "#10B981" : "#FF4B4B", marginBottom: "1rem" }}>
                 {isCorrect ? "CORRECT SEQUENCE!" : "INCORRECT SEQUENCE"}
              </p>
              
@@ -126,8 +123,8 @@ export function SequencingCard({ front, back, options, advancedMetadata, onRate 
                 <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600, width: "100%", marginBottom: "0.5rem" }}>CORRECT ORDER:</p>
                 {(advancedMetadata?.sequenceOrder || []).map((idx, pos) => (
                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                     <span style={{ fontWeight: 600, color: "var(--accent)" }}>
-                       <ReactMarkdown {...MD_OPTS}>{options?.[idx]}</ReactMarkdown>
+                     <span style={{ fontWeight: 600, color: "#10B981" }}>
+                       <ContentRenderer>{options?.[idx]}</ContentRenderer>
                      </span>
                      {pos < (advancedMetadata?.sequenceOrder?.length || 0) - 1 && <span style={{ color: "var(--text-muted)" }}>→</span>}
                    </div>
@@ -135,7 +132,7 @@ export function SequencingCard({ front, back, options, advancedMetadata, onRate 
              </div>
 
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6, borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: "1.5rem" }}>
-               <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+               <ContentRenderer fixEscapes>{back}</ContentRenderer>
              </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>

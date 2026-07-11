@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { Sparkles, HelpCircle } from "lucide-react";
@@ -17,10 +15,7 @@ interface FlashCardProps {
   onSaveHook?: (hook: string) => void;
 }
 
-const MD_OPTS = {
-  remarkPlugins: [remarkMath],
-  rehypePlugins: [rehypeKatex],
-};
+
 
 export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHook }: FlashCardProps) {
   const [flipped, setFlipped] = useState(false);
@@ -89,7 +84,7 @@ export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHo
 
             <div style={{ position: "absolute", top: "1.5rem", left: "1.5rem", background: "rgba(255,255,255,0.05)", padding: "0.3rem 0.8rem", borderRadius: "100px", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase" }}>Question</div>
             <div style={{ fontSize: "2.25rem", fontWeight: 600, textAlign: "center", lineHeight: 1.4, color: "var(--text-primary)", width: "100%" }}>
-              <ReactMarkdown {...MD_OPTS}>{front.replace(/\\n/g, '\n')}</ReactMarkdown>
+              <ContentRenderer fixEscapes>{front}</ContentRenderer>
             </div>
           </div>
 
@@ -135,7 +130,7 @@ export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHo
               Answer
             </div>
             <div style={{ fontSize: "2rem", fontWeight: 600, textAlign: "center", lineHeight: 1.5, color: "var(--text-primary)", width: "100%" }}>
-              <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+              <ContentRenderer fixEscapes>{back}</ContentRenderer>
             </div>
 
             {/* Mental Hook Overlay (Investment Phase) */}
@@ -201,7 +196,7 @@ export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHo
                   <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.7rem", color: "var(--accent)", marginBottom: "1rem", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <Sparkles size={14} /> Deep Insight
                   </p>
-                  <ReactMarkdown {...MD_OPTS}>{whyPrompt}</ReactMarkdown>
+                  <ContentRenderer>{whyPrompt}</ContentRenderer>
                 </div>
               )}
             </div>

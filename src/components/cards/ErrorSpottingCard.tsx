@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
@@ -17,7 +15,6 @@ interface ErrorSpottingCardProps {
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
 
-const MD_OPTS = { remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] };
 
 export function ErrorSpottingCard({ front, back, advancedMetadata, onRate }: ErrorSpottingCardProps) {
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
@@ -68,7 +65,7 @@ export function ErrorSpottingCard({ front, back, advancedMetadata, onRate }: Err
         </p>
         {instruction && (
           <div style={{ fontSize: "1.05rem", color: "var(--text-primary)", marginTop: "1rem", fontWeight: 600 }}>
-            <ReactMarkdown {...MD_OPTS}>{instruction}</ReactMarkdown>
+            <ContentRenderer>{instruction}</ContentRenderer>
           </div>
         )}
       </div>
@@ -84,7 +81,7 @@ export function ErrorSpottingCard({ front, back, advancedMetadata, onRate }: Err
 
           if (revealed) {
             if (isTarget) {
-              borderColor = "var(--accent)";
+              borderColor = "#10B981";
               bg = "rgba(88, 204, 2, 0.1)";
             } else if (isSelected) {
               borderColor = "#FF4B4B";
@@ -121,7 +118,7 @@ export function ErrorSpottingCard({ front, back, advancedMetadata, onRate }: Err
                 {idx + 1}
               </div>
               <div style={{ flex: 1, fontSize: "1.1rem", fontWeight: 600 }}>
-                <ReactMarkdown {...MD_OPTS}>{line}</ReactMarkdown>
+                <ContentRenderer>{line}</ContentRenderer>
               </div>
             </button>
           );
@@ -146,12 +143,12 @@ export function ErrorSpottingCard({ front, back, advancedMetadata, onRate }: Err
         </div>
       ) : (
         <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "var(--accent)" : "#FF4B4B"}` }}>
-             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "var(--accent)" : "#FF4B4B", marginBottom: "0.5rem" }}>
+          <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: `8px solid ${isCorrect ? "#10B981" : "#FF4B4B"}` }}>
+             <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: isCorrect ? "#10B981" : "#FF4B4B", marginBottom: "0.5rem" }}>
                 {isCorrect ? "STEP IDENTIFIED!" : "MISS-IDENTIFIED"}
              </p>
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6 }}>
-               <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+               <ContentRenderer fixEscapes>{back}</ContentRenderer>
              </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>

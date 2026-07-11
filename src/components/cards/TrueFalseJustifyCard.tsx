@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -17,7 +15,6 @@ interface TrueFalseJustifyCardProps {
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
 
-const MD_OPTS = { remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] };
 
 export function TrueFalseJustifyCard({ front, back, advancedMetadata, onRate }: TrueFalseJustifyCardProps) {
   const [selected, setSelected] = useState<boolean | null>(null);
@@ -45,7 +42,7 @@ export function TrueFalseJustifyCard({ front, back, advancedMetadata, onRate }: 
       <div className="card" style={{ padding: "2.5rem", background: "var(--bg-elevated)", border: "4px solid #37464F", borderRadius: "24px" }}>
          <p style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.75rem", marginBottom: "1rem", letterSpacing: "0.1em", textAlign: "center" }}>IS THIS STATEMENT TRUE?</p>
         <div style={{ fontSize: "1.75rem", fontWeight: 600, textAlign: "center", lineHeight: 1.4 }}>
-          <ReactMarkdown {...MD_OPTS}>{front.replace(/\\n/g, '\n')}</ReactMarkdown>
+          <ContentRenderer fixEscapes>{front}</ContentRenderer>
         </div>
       </div>
 
@@ -60,7 +57,7 @@ export function TrueFalseJustifyCard({ front, back, advancedMetadata, onRate }: 
                 fontSize: "1.25rem", 
                 fontWeight: 600, 
                 background: selected === true ? "rgba(88, 204, 2, 0.1)" : "transparent",
-                border: `4px solid ${selected === true ? "var(--accent)" : "#37464F"}`,
+                border: `4px solid ${selected === true ? "#10B981" : "#37464F"}`,
                 borderRadius: "16px",
                 transition: "all 0.2s"
               }}
@@ -124,13 +121,13 @@ export function TrueFalseJustifyCard({ front, back, advancedMetadata, onRate }: 
           <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", border: "2px solid rgba(255,255,255,0.1)" }}>
              <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: "var(--accent)", marginBottom: "1rem", letterSpacing: "0.1em" }}>EXPLANATION</p>
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6 }}>
-               <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+               <ContentRenderer fixEscapes>{back}</ContentRenderer>
              </div>
              {advancedMetadata?.justification && (
                 <div style={{ marginTop: "1.5rem", padding: "1rem", background: "rgba(255,255,255,0.03)", borderRadius: "12px", border: "1px dashed rgba(255,255,255,0.1)" }}>
                   <p style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "0.5rem" }}>IDEAL JUSTIFICATION</p>
                   <div style={{ fontSize: "0.95rem", fontStyle: "italic" }}>
-                    <ReactMarkdown {...MD_OPTS}>{advancedMetadata.justification}</ReactMarkdown>
+                    <ContentRenderer>{advancedMetadata.justification}</ContentRenderer>
                   </div>
                 </div>
              )}

@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { Eye, EyeOff } from "lucide-react";
@@ -26,7 +24,6 @@ interface ImageOcclusionCardProps {
   onRate: (rating: 1 | 2 | 3 | 4, confidence: number) => void;
 }
 
-const MD_OPTS = { remarkPlugins: [remarkMath], rehypePlugins: [rehypeKatex] };
 
 export function ImageOcclusionCard({ front, back, advancedMetadata, onRate }: ImageOcclusionCardProps) {
   const [revealed, setRevealed] = useState(false);
@@ -44,7 +41,7 @@ export function ImageOcclusionCard({ front, back, advancedMetadata, onRate }: Im
       <div style={{ textAlign: "center" }}>
         <p style={{ fontWeight: 600, color: "var(--accent)", fontSize: "0.8rem", letterSpacing: "0.2em", textTransform: "uppercase" }}>Image Occlusion</p>
         <div style={{ fontSize: "1.25rem", fontWeight: 700, marginTop: "0.5rem" }}>
-           <ReactMarkdown {...MD_OPTS}>{front.replace(/\\n/g, '\n')}</ReactMarkdown>
+           <ContentRenderer fixEscapes>{front}</ContentRenderer>
         </div>
       </div>
 
@@ -123,7 +120,7 @@ export function ImageOcclusionCard({ front, back, advancedMetadata, onRate }: Im
           <div className="card" style={{ background: "var(--bg-elevated)", padding: "2rem", borderRadius: "24px", borderLeft: "8px solid var(--accent)" }}>
              <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.75rem", color: "var(--accent)", marginBottom: "1rem" }}>Deep Insight</p>
              <div style={{ color: "var(--text-primary)", fontSize: "1.1rem", lineHeight: 1.6 }}>
-               <ReactMarkdown {...MD_OPTS}>{back.replace(/\\n/g, '\n')}</ReactMarkdown>
+               <ContentRenderer fixEscapes>{back}</ContentRenderer>
              </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>

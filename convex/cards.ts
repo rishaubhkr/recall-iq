@@ -1,5 +1,6 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 
 // ─── Card CRUD (admin) ────────────────────────────────────────────────────────
 export const createCard = mutation({
@@ -36,7 +37,21 @@ export const createCard = mutation({
     if (!args.subtopicId) {
       throw new Error("Card must belong to a subtopic.");
     }
-    return ctx.db.insert("cards", { ...args, isPublished: false });
+    
+    const subtopic = await ctx.db.get(args.subtopicId);
+    if (!subtopic) throw new Error("Subtopic not found.");
+    const topic = await ctx.db.get(subtopic.topicId);
+    if (!topic) throw new Error("Topic not found.");
+    const subject = await ctx.db.get(topic.subjectId);
+    if (!subject) throw new Error("Subject not found.");
+
+    return ctx.db.insert("cards", { 
+      ...args, 
+      topicId: topic._id,
+      subjectId: subject._id,
+      courseId: subject.courseId,
+      isPublished: false 
+    });
   },
 });
 
@@ -113,6 +128,7 @@ export const getCardsByIds = query({
 
 export const adminListCards = query({
   args: {
+    paginationOpts: paginationOptsValidator,
     courseId: v.optional(v.id("courses")),
     subjectId: v.optional(v.id("subjects")),
     topicId: v.optional(v.id("topics")),
@@ -120,47 +136,25 @@ export const adminListCards = query({
     isPublished: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    let validSubtopicIds: Set<string> | null = null;
+    let q: any = ctx.db.query("cards");
 
     if (args.subtopicId) {
-      validSubtopicIds = new Set([args.subtopicId]);
+      q = q.withIndex("by_subtopic", (q: any) => q.eq("subtopicId", args.subtopicId));
     } else if (args.topicId) {
-      const subs = await ctx.db.query("subtopics").withIndex("by_topic", (q) => q.eq("topicId", args.topicId!)).collect();
-      validSubtopicIds = new Set(subs.map((s) => s._id));
+      q = q.withIndex("by_topic", (q: any) => q.eq("topicId", args.topicId));
     } else if (args.subjectId) {
-      const topics = await ctx.db.query("topics").withIndex("by_subject", (q) => q.eq("subjectId", args.subjectId!)).collect();
-      validSubtopicIds = new Set();
-      for (const t of topics) {
-        const subs = await ctx.db.query("subtopics").withIndex("by_topic", (q) => q.eq("topicId", t._id)).collect();
-        subs.forEach((s) => validSubtopicIds!.add(s._id));
-      }
+      q = q.withIndex("by_subject", (q: any) => q.eq("subjectId", args.subjectId));
     } else if (args.courseId) {
-      const subjects = await ctx.db.query("subjects").withIndex("by_course", (q) => q.eq("courseId", args.courseId!)).collect();
-      validSubtopicIds = new Set();
-      for (const s of subjects) {
-        const topics = await ctx.db.query("topics").withIndex("by_subject", (q) => q.eq("subjectId", s._id)).collect();
-        for (const t of topics) {
-          const subs = await ctx.db.query("subtopics").withIndex("by_topic", (q) => q.eq("topicId", t._id)).collect();
-          subs.forEach((sub) => validSubtopicIds!.add(sub._id));
-        }
-      }
-    }
-
-    let cards = [];
-    if (validSubtopicIds) {
-      for (const sid of validSubtopicIds) {
-        const subCards = await ctx.db.query("cards").withIndex("by_subtopic", (q) => q.eq("subtopicId", sid as import("./_generated/dataModel").Id<"subtopics">)).collect();
-        cards.push(...subCards);
-      }
+      q = q.withIndex("by_course", (q: any) => q.eq("courseId", args.courseId));
     } else {
-      cards = await ctx.db.query("cards").collect();
+      q = q.order("desc");
     }
 
     if (args.isPublished !== undefined) {
-      cards = cards.filter((c) => c.isPublished === args.isPublished);
+      q = q.filter((q: any) => q.eq(q.field("isPublished"), args.isPublished));
     }
 
-    return cards;
+    return await q.paginate(args.paginationOpts);
   },
 });
 
@@ -179,5 +173,33 @@ export const bulkDeleteCards = mutation({
     for (const id of args.ids) {
       await ctx.db.delete(id);
     }
+  },
+});
+
+export const migrateCardsHierarchy = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cards = await ctx.db.query("cards").collect();
+    let count = 0;
+    for (const card of cards) {
+      if (card.subtopicId && (!card.topicId || !card.subjectId)) {
+        const subtopic = await ctx.db.get(card.subtopicId);
+        if (subtopic) {
+          const topic = await ctx.db.get(subtopic.topicId);
+          if (topic) {
+            const subject = await ctx.db.get(topic.subjectId);
+            if (subject) {
+              await ctx.db.patch(card._id, {
+                topicId: topic._id,
+                subjectId: subject._id,
+                courseId: subject.courseId,
+              });
+              count++;
+            }
+          }
+        }
+      }
+    }
+    return `Migrated ${count} cards`;
   },
 });

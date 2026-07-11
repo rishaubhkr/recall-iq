@@ -51,9 +51,9 @@ function ClassroomContent() {
     );
   }
 
-  const totalCourseCards = tree.reduce((acc, sub) => {
-    return acc + sub.topics.reduce((tAcc, top) => {
-      return tAcc + top.subtopics.reduce((sAcc, st) => sAcc + st.cardCount, 0);
+  const totalCourseCards = tree.reduce((acc: number, sub: any) => {
+    return acc + sub.topics.reduce((tAcc: number, top: any) => {
+      return tAcc + top.subtopics.reduce((sAcc: number, st: any) => sAcc + st.cardCount, 0);
     }, 0);
   }, 0);
 
@@ -91,10 +91,10 @@ function ClassroomContent() {
           </div>
         )}
 
-        {tree.map((subject) => {
+        {tree.map((subject: any) => {
           const isExpanded = expandedSubjects[subject._id] ?? true;
-          const totalSubCards = subject.topics.reduce((acc, t) => acc + t.subtopics.reduce((s, st) => s + st.cardCount, 0), 0);
-          const totalSeenCards = subject.topics.reduce((acc, t) => acc + t.subtopics.reduce((s, st) => s + (st.seenCardCount || 0), 0), 0);
+          const totalSubCards = subject.topics.reduce((acc: number, t: any) => acc + t.subtopics.reduce((s: number, st: any) => s + st.cardCount, 0), 0);
+          const totalSeenCards = subject.topics.reduce((acc: number, t: any) => acc + t.subtopics.reduce((s: number, st: any) => s + (st.seenCardCount || 0), 0), 0);
           
           return (
             <div key={subject._id} style={{ border: "1px solid var(--border)", borderRadius: "16px", overflow: "hidden", background: "var(--bg-elevated)" }}>
@@ -113,46 +113,61 @@ function ClassroomContent() {
                     <p style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{totalSeenCards}/{totalSubCards} cards attempted</p>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                   <Link 
                     href={`/study?mode=subject&subjectId=${subject._id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="btn btn-ghost" 
-                    style={{ padding: "0.4rem 1rem", fontSize: "0.85rem", borderRadius: "100px", border: "1px solid rgba(255,255,255,0.1)" }}
+                    className="btn btn-ghost hover:bg-white/10 hover:border-white/20 transition-all" 
+                    style={{ padding: "0.4rem 1rem", fontSize: "0.85rem", borderRadius: "100px", border: "1px solid rgba(255,255,255,0.1)", color: "var(--text-primary)" }}
                   >
                     Study Subject
                   </Link>
-                  <ChevronRight size={20} style={{ color: "var(--text-muted)", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
+                  <div style={{ 
+                    width: 32, 
+                    height: 32, 
+                    borderRadius: "50%", 
+                    background: "rgba(255,255,255,0.04)", 
+                    border: "1px solid rgba(255,255,255,0.08)", 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center",
+                    transition: "all 0.2s"
+                  }} className="hover:bg-white/10 hover:border-white/20">
+                    <ChevronRight size={18} style={{ color: "var(--text-primary)", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
+                  </div>
                 </div>
               </div>
 
               {/* Topics / Chapters */}
               {isExpanded && (
-                <div style={{ padding: "1rem", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {subject.topics.map(topic => {
+                <div style={{ padding: "1.25rem 1.5rem", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                  {subject.topics.map((topic: any, topicIdx: number) => {
                     const isDefaultTopic = topic.slug === "__default__";
 
                     return (
-                      <div key={topic._id} style={{ background: "rgba(0,0,0,0.2)", borderRadius: "12px", padding: "1rem" }}>
+                      <div key={topic._id} style={{ paddingTop: topicIdx > 0 ? "1rem" : "0" }}>
                         {!isDefaultTopic && (
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                              <Book size={16} className="text-muted" />
-                              <h3 style={{ fontSize: "1.05rem", fontWeight: 600, color: "var(--text-primary)" }}>{topic.name}</h3>
+                          <div style={{ marginBottom: "1rem" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                <Book size={18} className="text-secondary" />
+                                <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>{topic.name}</h3>
+                              </div>
+                              <Link 
+                                href={`/study?mode=subject&topicId=${topic._id}`}
+                                className="btn hover:bg-[#475569] hover:text-white transition-all" 
+                                style={{ padding: "0.35rem 0.9rem", fontSize: "0.75rem", fontWeight: 600, borderRadius: "100px", background: "#334155", color: "#F8FAFC", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" }}
+                              >
+                                Study Chapter
+                              </Link>
                             </div>
-                            <Link 
-                              href={`/study?mode=subject&topicId=${topic._id}`}
-                              className="btn" 
-                              style={{ padding: "0.3rem 0.8rem", fontSize: "0.75rem", borderRadius: "100px", background: "rgba(255,255,255,0.05)", color: "var(--text-secondary)" }}
-                            >
-                              Study Chapter
-                            </Link>
+                            <hr style={{ border: "0", borderTop: "1px solid rgba(255, 255, 255, 0.08)", margin: "0 0 1rem 0" }} />
                           </div>
                         )}
 
                         {/* Subtopics */}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.5rem" }}>
-                          {topic.subtopics.map(sub => {
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: "0.75rem" }}>
+                          {topic.subtopics.map((sub: any) => {
                             if (sub.slug === "__default__" && isDefaultTopic) return null; // Flat course structure
                             const isComplete = sub.seenCardCount === sub.cardCount && sub.cardCount > 0;
                             const progress = sub.cardCount > 0 ? ((sub.seenCardCount || 0) / sub.cardCount) * 100 : 0;
@@ -165,67 +180,71 @@ function ClassroomContent() {
                                   display: "flex", 
                                   flexDirection: "column", 
                                   justifyContent: "space-between",
-                                  gap: "1rem",
-                                  padding: "1rem 1rem 1.25rem", 
-                                  background: "rgba(255,255,255,0.02)", 
-                                  border: "1px solid rgba(255,255,255,0.05)",
-                                  borderRadius: "10px", 
+                                  gap: "1.25rem",
+                                  padding: "1.25rem", 
+                                  background: "rgba(255,255,255,0.025)", 
+                                  border: "1px solid rgba(255,255,255,0.06)",
+                                  borderRadius: "12px", 
                                   textDecoration: "none", 
                                   transition: "all 0.2s",
-                                  position: "relative",
-                                  overflow: "hidden"
+                                  position: "relative"
                                 }}
-                                className="hover:bg-white/5 hover:border-[rgba(255,255,255,0.1)] group"
+                                className="hover:bg-white/5 hover:border-[rgba(255,255,255,0.15)] group"
                               >
                                 <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
                                   <div style={{ 
-                                    width: 24, 
-                                    height: 24, 
-                                    borderRadius: "6px", 
-                                    background: "rgba(255,255,255,0.03)", 
+                                    width: 26, 
+                                    height: 26, 
+                                    borderRadius: "8px", 
+                                    background: "rgba(255,255,255,0.04)", 
                                     display: "flex", 
                                     alignItems: "center", 
                                     justifyContent: "center",
                                     flexShrink: 0,
-                                    marginTop: "2px"
-                                  }} className="group-hover:bg-[var(--accent)]/10 transition-colors">
-                                    <FileText size={14} className="text-muted group-hover:text-accent transition-colors" />
+                                    marginTop: "1px"
+                                  }} className="group-hover:bg-[#10B981]/15 transition-colors">
+                                    <FileText size={15} className="text-secondary group-hover:text-[#10B981] transition-colors" />
                                   </div>
-                                  <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", lineHeight: 1.4 }} className="group-hover:text-primary transition-colors">
+                                  <span style={{ fontSize: "0.95rem", fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.45 }} className="group-hover:text-primary transition-colors">
                                     {sub.name}
                                   </span>
                                 </div>
-                                <div style={{ display: "flex", justifyContent: "flex-end", position: "relative", zIndex: 1 }}>
-                                  <span style={{ 
-                                    fontSize: "0.75rem", 
-                                    fontWeight: 600,
-                                    color: isComplete ? "var(--accent)" : "var(--text-muted)", 
-                                    background: isComplete ? "rgba(245,158,11,0.1)" : "rgba(0,0,0,0.3)", 
-                                    padding: "0.2rem 0.5rem", 
-                                    borderRadius: "4px" 
-                                  }}>
-                                    {sub.seenCardCount !== undefined ? `${sub.seenCardCount}/${sub.cardCount}` : sub.cardCount} cards
-                                  </span>
-                                </div>
                                 
-                                {/* Micro Progress Bar */}
-                                {sub.cardCount > 0 && (
-                                  <div style={{
-                                    position: "absolute",
-                                    bottom: 0,
-                                    left: 0,
-                                    right: 0,
-                                    height: "3px",
-                                    background: "rgba(255,255,255,0.05)"
-                                  }}>
-                                    <div style={{
-                                      height: "100%",
-                                      width: `${progress}%`,
-                                      background: isComplete ? "var(--accent)" : "rgba(255,255,255,0.2)",
-                                      transition: "width 0.5s ease-out, background 0.3s"
-                                    }} className="group-hover:bg-[var(--accent)] transition-colors" />
+                                {/* Footer: Status Pill & Inline Completion Bar */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                    <span style={{ 
+                                      fontSize: "0.75rem", 
+                                      fontWeight: 600,
+                                      color: isComplete ? "#10B981" : "#E2E8F0", 
+                                      background: isComplete ? "rgba(16, 185, 129, 0.15)" : "#334155", 
+                                      padding: "0.2rem 0.6rem", 
+                                      borderRadius: "100px",
+                                      border: "1px solid rgba(255,255,255,0.05)"
+                                    }}>
+                                      {sub.seenCardCount !== undefined ? `${sub.seenCardCount}/${sub.cardCount}` : sub.cardCount} cards
+                                    </span>
                                   </div>
-                                )}
+                                  
+                                  {/* Sleek Inline Progress Bar */}
+                                  {sub.cardCount > 0 && (
+                                    <div style={{
+                                      width: "100%",
+                                      height: "4px",
+                                      background: "rgba(255,255,255,0.08)",
+                                      borderRadius: "100px",
+                                      overflow: "hidden"
+                                    }}>
+                                      <div style={{
+                                        height: "100%",
+                                        width: `${progress}%`,
+                                        background: isComplete ? "#10B981" : "#38BDF8",
+                                        borderRadius: "100px",
+                                        transition: "width 0.5s ease-out, background 0.3s"
+                                      }} className="group-hover:brightness-110 transition-all" />
+                                    </div>
+                                  )}
+                                </div>
                               </Link>
                             );
                           })}
