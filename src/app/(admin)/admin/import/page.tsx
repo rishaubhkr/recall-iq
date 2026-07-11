@@ -44,7 +44,6 @@ function validateRow(row: RowData): string | null {
     if (!row.options?.trim()) return "Options";
     if (!row.correctOption?.trim()) return "Correct Index";
   } else if (row.type === "numerical") {
-    if (!row.back?.trim()) return "Back";
     if (!row.advancedMetadata?.trim()) return "Metadata (numericalAnswer) Missing";
     try {
       const data = JSON.parse(row.advancedMetadata);
