@@ -58,6 +58,7 @@ export const createCard = mutation({
 export const updateCard = mutation({
   args: {
     id: v.id("cards"),
+    type: v.optional(v.string()),
     front: v.optional(v.string()),
     back: v.optional(v.string()),
     tier: v.optional(v.union(v.literal("free"), v.literal("premium"))),

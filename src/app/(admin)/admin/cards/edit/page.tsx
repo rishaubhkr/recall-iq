@@ -30,6 +30,7 @@ function EditCardContent() {
     try {
       await updateCard({
         id: cardId,
+        type: data.type,
         tier: data.tier,
         front: data.front,
         back: data.back,
