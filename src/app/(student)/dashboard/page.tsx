@@ -12,9 +12,18 @@ function StatCard({ icon: Icon, value, label, color, description, className }: {
   icon: typeof Flame; value: string | number; label: string; color: string; description: string; className?: string;
 }) {
   return (
-    <div className={`stat-card ${className || ""}`}>
-      <div className="stat-card-icon-wrapper" style={{
-        background: `color-mix(in srgb, ${color} 12%, transparent)`,
+    <div className={className} style={{ 
+      display: "flex", alignItems: "center", gap: "1.25rem", height: "100%", 
+      background: "var(--bg-elevated)", 
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: "20px",
+      padding: "1.25rem 1.5rem",
+      boxShadow: "0 8px 24px -8px rgba(0,0,0,0.5)"
+    }}>
+      <div style={{
+        width: 44, height: 44, background: `color-mix(in srgb, ${color} 12%, transparent)`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        borderRadius: "12px", flexShrink: 0,
       }}>
         <Icon size={20} color={color} />
       </div>
@@ -33,23 +42,17 @@ function StatCard({ icon: Icon, value, label, color, description, className }: {
 }
 
 function ActivityBar({ day, count, max }: { day: string; count: number; max: number }) {
-  const isZero = count === 0;
-  const h = !isZero && max > 0 ? Math.round((count / max) * 60) : 4;
+  const h = max > 0 ? Math.round((count / max) * 60) : 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: 1 }}>
       <div style={{
         width: "100%", maxWidth: "32px", height: 70, display: "flex", alignItems: "flex-end",
-        borderRadius: "8px", overflow: "hidden", background: "rgba(255,255,255,0.08)",
+        borderRadius: "8px", overflow: "hidden", background: "rgba(255,255,255,0.05)",
         border: "1px solid rgba(255,255,255,0.04)"
       }}>
         <div style={{
-          width: "100%", 
-          height: h, 
-          background: isZero 
-            ? "rgba(255, 255, 255, 0.15)" 
-            : "linear-gradient(180deg, var(--accent) 0%, #B45309 100%)",
-          borderRadius: "8px", 
-          transition: "height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          width: "100%", height: h, background: "linear-gradient(180deg, var(--accent) 0%, #B45309 100%)",
+          borderRadius: "8px", transition: "height 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)",
         }} />
       </div>
       <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 600 }}>{day.slice(5)}</span>
@@ -94,12 +97,15 @@ export default function DashboardPage() {
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* Header */}
-      <div style={{ marginBottom: "2.5rem" }} className="animate-in">
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: "0.5rem", fontWeight: 700 }}>
-          {greeting()}, {user?.firstName ?? "Student"} — YOUR REVIEW
+      <div style={{ marginBottom: "3rem" }} className="animate-in">
+        <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: "0.5rem", fontWeight: 700 }}>
+          {greeting()}, {user?.firstName ?? "Student"}
         </p>
-        <h1 style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.1, color: "var(--text-primary)" }}>
-          {isLoading ? "Loading your queue…" : stats?.dueToday ? `${stats.dueToday} Cards Due.` : "Your Queue is Ready."}
+        <h1 style={{ fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1.2, color: "var(--text-primary)" }}>
+          Your Review<br />
+          <span style={{ color: "var(--accent)" }}>
+            {isLoading ? "Loading…" : stats?.dueToday ? `${stats.dueToday} Cards Due.` : "Queue is Ready."}
+          </span>
         </h1>
       </div>
 
@@ -231,8 +237,8 @@ export default function DashboardPage() {
         
         {/* --- Visual Bloom (Topic Mastery Nodes) --- */}
         {stats?.topicMastery && stats.topicMastery.length > 0 && (
-          <div className="bento-span-4" style={{ marginTop: "1.5rem" }}>
-            <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: "1.5rem" }}>
+          <div className="bento-span-4" style={{ marginTop: "1rem" }}>
+            <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "1.5rem" }}>
               Recent Topic Mastery
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
@@ -257,7 +263,7 @@ export default function DashboardPage() {
                   <span style={{ fontWeight: 600, fontSize: "0.85rem", color: topic.isBlooming ? "var(--text-primary)" : "var(--text-secondary)" }}>
                     {topic.name}
                   </span>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, background: "rgba(255,255,255,0.08)", padding: "2px 8px", borderRadius: "6px", color: "var(--text-primary)" }}>
+                  <span style={{ fontSize: "0.7rem", fontWeight: 600, background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: "4px", color: "var(--text-muted)" }}>
                     {topic.accuracy}%
                   </span>
                 </div>
