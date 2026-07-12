@@ -203,7 +203,7 @@ export default function InteractiveLanding() {
             ))}
           </div>
 
-          <h1 className="display-xl" style={{ fontWeight: 500, letterSpacing: "-0.04em", lineHeight: 0.95, marginBottom: "2rem" }}>
+          <h1 className="display-xl font-bold" style={{ fontWeight: 500, letterSpacing: "-0.04em", lineHeight: 0.95, marginBottom: "2rem" }}>
             Master the Syllabus.<br />
             Secure Your <span style={{ color: "var(--accent)" }}>Dream Rank.</span>
           </h1>

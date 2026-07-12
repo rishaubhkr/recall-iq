@@ -17,6 +17,20 @@ interface FlashCardProps {
 
 
 
+function splitFrontContent(raw: string) {
+  if (!raw) return { questionText: "", diagramText: "" };
+  const content = raw.replace(/\\n/g, "\n");
+  const blockRegex = /(?:^|\n)[ \t]*(?:```)?(mermaid|chart)\s*\n([\s\S]*?)(?:```|(?=\n[ \t]*\n|$))/gi;
+  
+  let diagramText = "";
+  const questionText = content.replace(blockRegex, (match) => {
+    diagramText += (diagramText ? "\n\n" : "") + match.trim();
+    return "";
+  }).trim();
+  
+  return { questionText: questionText || content, diagramText };
+}
+
 export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHook }: FlashCardProps) {
   const [flipped, setFlipped] = useState(false);
   const [confidence, setConfidence] = useState(0);
@@ -26,6 +40,8 @@ export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHo
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(mentalHook || "");
   
+  const { questionText, diagramText } = splitFrontContent(front);
+
   // Timer State
   const [startTime] = useState(Date.now());
   const [responseMs, setResponseMs] = useState(0);
@@ -61,7 +77,7 @@ export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHo
           <div className="card" style={{ 
             minHeight: "340px", 
             display: "flex", 
-            flexDirection: "column",
+            flexDirection: "column", 
             alignItems: "center", 
             justifyContent: "center", 
             padding: "3rem", 
@@ -84,7 +100,7 @@ export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHo
 
             <div style={{ position: "absolute", top: "1.5rem", left: "1.5rem", background: "rgba(255,255,255,0.05)", padding: "0.3rem 0.8rem", borderRadius: "100px", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.1em", color: "var(--text-muted)", textTransform: "uppercase" }}>Question</div>
             <div style={{ fontSize: "2.25rem", fontWeight: 600, textAlign: "center", lineHeight: 1.4, color: "var(--text-primary)", width: "100%" }}>
-              <ContentRenderer fixEscapes>{front}</ContentRenderer>
+              <ContentRenderer fixEscapes>{questionText}</ContentRenderer>
             </div>
           </div>
 
@@ -106,9 +122,20 @@ export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHo
       ) : (
         <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
           
-          {/* Question (Small Ref) */}
-          <div style={{ textAlign: "center", opacity: 0.4, fontSize: "1rem", fontWeight: 600, whiteSpace: "pre-wrap" }}>
-             {front.replace(/\\n/g, '\n')}
+          {/* Question Reference Header (Formatted LaTeX & High Contrast) */}
+          <div style={{ 
+            textAlign: "center", 
+            color: "#E2E8F0", 
+            fontSize: "1.15rem", 
+            fontWeight: 600, 
+            lineHeight: 1.5,
+            background: "rgba(30, 41, 59, 0.75)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: "16px",
+            padding: "1rem 1.75rem",
+            boxShadow: "0 4px 14px rgba(0, 0, 0, 0.25)"
+          }}>
+            <ContentRenderer fixEscapes>{questionText}</ContentRenderer>
           </div>
 
           {/* Answer Card */}
@@ -130,29 +157,31 @@ export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHo
               Answer
             </div>
             <div style={{ fontSize: "2rem", fontWeight: 600, textAlign: "center", lineHeight: 1.5, color: "var(--text-primary)", width: "100%" }}>
+              {diagramText && (
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <ContentRenderer fixEscapes>{diagramText}</ContentRenderer>
+                </div>
+              )}
               <ContentRenderer fixEscapes>{back}</ContentRenderer>
             </div>
 
-            {/* Mental Hook Overlay (Investment Phase) */}
+            {/* Mental Hook Box (High-Contrast VIP Personal Space) */}
             <div style={{ 
-              position: "absolute", 
-              bottom: "1.5rem", 
-              left: "1.5rem", 
-              right: "1.5rem",
-              background: "rgba(255, 255, 255, 0.03)",
-              border: "1px dashed rgba(255, 255, 255, 0.1)",
-              borderRadius: "12px",
-              padding: "0.75rem 1rem",
-              fontSize: "0.85rem",
-              color: "var(--accent)",
-              fontStyle: "italic",
+              marginTop: "3.5rem",
+              background: "rgba(30, 41, 59, 0.92)",
+              border: "1px solid rgba(245, 158, 11, 0.45)",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.12)",
+              borderRadius: "16px",
+              padding: "1rem 1.35rem",
+              fontSize: "0.92rem",
+              color: "#F8FAFC",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               gap: "1rem"
             }}>
               {editingHook ? (
-                <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+                <div style={{ display: "flex", gap: "0.75rem", width: "100%", alignItems: "center" }}>
                   <input 
                     autoFocus
                     value={hookValue}
@@ -163,18 +192,18 @@ export function FlashCard({ front, back, whyPrompt, mentalHook, onRate, onSaveHo
                         setEditingHook(false);
                       }
                     }}
-                    placeholder="Add a mnemonic or note..."
-                    style={{ background: "transparent", border: "none", borderBottom: "1px solid var(--accent)", color: "white", outline: "none", fontSize: "0.85rem", flex: 1 }}
+                    placeholder="💡 Add a mnemonic or mental hook..."
+                    style={{ background: "transparent", border: "none", borderBottom: "2px solid #FCD34D", color: "#F8FAFC", outline: "none", fontSize: "0.95rem", flex: 1, paddingBottom: "0.25rem" }}
                   />
-                  <button onClick={() => { onSaveHook?.(hookValue); setEditingHook(false); }} style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 600, cursor: "pointer", fontSize: "0.75rem" }}>SAVE</button>
+                  <button onClick={() => { onSaveHook?.(hookValue); setEditingHook(false); }} style={{ background: "#F59E0B", color: "#000", border: "none", borderRadius: "8px", padding: "0.4rem 0.9rem", fontWeight: 700, cursor: "pointer", fontSize: "0.75rem", letterSpacing: "0.05em" }}>SAVE</button>
                 </div>
               ) : (
                 <>
-                  <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {hookValue ? `Hook: ${hookValue}` : "Add a mental hook..."}
+                  <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: hookValue ? "#F8FAFC" : "#FCD34D", fontWeight: 500 }}>
+                    {hookValue ? `💡 Hook: ${hookValue}` : "💡 Add a mental hook to lock this answer in memory..."}
                   </div>
-                  <button onClick={() => setEditingHook(true)} style={{ background: "none", border: "none", color: "var(--accent)", fontWeight: 600, cursor: "pointer", fontSize: "0.75rem", flexShrink: 0 }}>
-                    {hookValue ? "EDIT" : "ADD"}
+                  <button onClick={() => setEditingHook(true)} style={{ background: "rgba(245, 158, 11, 0.15)", border: "1px solid rgba(245, 158, 11, 0.4)", color: "#FCD34D", borderRadius: "8px", padding: "0.35rem 0.85rem", fontWeight: 700, cursor: "pointer", fontSize: "0.75rem", flexShrink: 0, letterSpacing: "0.05em" }}>
+                    {hookValue ? "EDIT" : "ADD HOOK"}
                   </button>
                 </>
               )}

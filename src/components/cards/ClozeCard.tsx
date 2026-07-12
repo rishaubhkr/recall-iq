@@ -152,11 +152,11 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
 
       {/* Input Inline Area */}
       <div className="card" style={{ 
-        padding: "2rem", 
+        padding: "2.5rem", 
         borderRadius: "24px", 
         border: "4px solid #37464F",
-        lineHeight: 2.2,
-        fontSize: "1.25rem",
+        lineHeight: 2.6,
+        fontSize: "1.35rem",
         fontWeight: 600,
         whiteSpace: "normal"
       }}>
@@ -165,7 +165,7 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
             // Strip newlines AND any leading/trailing multiple spaces to prevent Markdown code blocks
             const inlineContent = token.content.replace(/[\r\n]+/g, " ").replace(/\s{2,}/g, " ");
             return (
-              <span key={idx} className="cloze-text-chunk" style={{ fontSize: "1.25rem", fontWeight: 600 }}>
+              <span key={idx} className="cloze-text-chunk" style={{ fontSize: "1.35rem", fontWeight: 600 }}>
                 <ReactMarkdown {...MD_OPTS}>{inlineContent}</ReactMarkdown>
               </span>
             );
@@ -176,7 +176,7 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
             const isBlankTypo = isTypoMap[bIdx];
             
             return (
-              <span key={idx} style={{ display: "inline-block" }}>
+              <span key={idx} style={{ display: "inline-block", margin: "0.35rem 0.5rem" }}>
                 {!isBlankRevealed ? (
                   <input
                     ref={el => { inputRefs.current[bIdx] = el; }}
@@ -193,9 +193,9 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
                       color: "var(--text-primary)",
                       fontFamily: "var(--font-mono)",
                       fontSize: "1.25rem",
-                      padding: "0.4rem 0.6rem",
-                      minWidth: Math.max(50, token.content.length * 12),
-                      width: Math.max(50, token.content.length * 12),
+                      padding: "0.45rem 0.75rem",
+                      minWidth: Math.max(60, token.content.length * 14),
+                      width: Math.max(60, token.content.length * 14),
                       outline: "none",
                       transition: "all 0.2s",
                       boxShadow: "inset 0 2px 4px rgba(0,0,0,0.2)",
@@ -206,7 +206,7 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
                   <span
                     style={{
                       display: "inline-block",
-                      padding: "0.4rem 0.6rem",
+                      padding: "0.45rem 0.75rem",
                       border: `3px solid ${isBlankCorrect ? (isBlankTypo ? "var(--accent-amber)" : "#10B981") : "#FF4B4B"}`,
                       borderRadius: "12px",
                       background: "var(--bg-primary)",

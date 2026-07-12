@@ -19,14 +19,18 @@ export default function ClassroomPage() {
 
 function ClassroomContent() {
   const searchParams = useSearchParams();
-  const courseId = searchParams.get("courseId") as Id<"courses">;
+  const courseIdParam = searchParams.get("courseId") as Id<"courses"> | null;
 
   // We fetch all courses just to get the name, assuming getCourse might not be exposed to students.
   const courses = useQuery(api.courses.listPublishedCourses);
-  const course = courses?.find(c => c._id === courseId);
+  const effectiveCourseId = courseIdParam || courses?.[0]?._id;
+  const course = courses?.find(c => c._id === effectiveCourseId);
 
   const { convexUserId } = useConvexUser();
-  const tree = useQuery(api.subjects.getFullTree, courseId ? { courseId, userId: convexUserId } : "skip");
+  const tree = useQuery(
+    api.subjects.getFullTree, 
+    effectiveCourseId ? { courseId: effectiveCourseId, userId: convexUserId } : "skip"
+  );
 
   // Keep track of which subjects/topics are expanded
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
@@ -35,7 +39,7 @@ function ClassroomContent() {
     setExpandedSubjects(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  if (!courseId || courses === undefined || tree === undefined) {
+  if (courses === undefined || (effectiveCourseId && tree === undefined)) {
     return (
       <div style={{ display: "flex", justifyContent: "center", padding: "6rem", height: "100vh", alignItems: "center" }}>
         <Loader2 className="animate-spin text-muted" size={32} />
@@ -43,10 +47,10 @@ function ClassroomContent() {
     );
   }
 
-  if (!course) {
+  if (!effectiveCourseId || !course || !tree) {
     return (
       <div style={{ padding: "4rem 2rem", textAlign: "center", color: "var(--text-muted)" }}>
-        Course not found or not published.
+        No published courses found. Please check back soon!
       </div>
     );
   }

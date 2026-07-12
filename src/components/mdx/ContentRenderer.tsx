@@ -74,7 +74,13 @@ interface ContentRendererProps {
 export function ContentRenderer({ children, fixEscapes = true }: ContentRendererProps) {
   if (!children) return null;
 
-  const content = fixEscapes ? children.replace(/\\n/g, "\n") : children;
+  let content = fixEscapes ? children.replace(/\\n/g, "\n") : children;
+  
+  // Pre-process to fix AI generated TSVs that output bare "mermaid" or "chart" 
+  // without backticks (e.g. \n\nmermaid\ngraph TD...). 
+  // Matches a line consisting ONLY of "mermaid" or "chart" (ignoring whitespace).
+  content = content.replace(/(?:^|\n)[ \t]*(mermaid|chart)[ \t]*\n([\s\S]*?)(?=\n[ \t]*\n|$)/g, "\n```$1\n$2\n```\n");
+
   const segments = parseSegments(content);
 
   return (

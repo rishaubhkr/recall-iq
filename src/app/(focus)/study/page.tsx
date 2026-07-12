@@ -16,7 +16,8 @@ import { ErrorSpottingCard } from "@/components/cards/ErrorSpottingCard";
 import { ConceptInterleaveCard } from "@/components/cards/ConceptInterleaveCard";
 import { SequencingCard } from "@/components/cards/SequencingCard";
 import { MatrixMatchCard } from "@/components/cards/MatrixMatchCard";
-import { X, ChevronRight, Loader2, Heart, ShieldAlert } from "lucide-react";
+import { ImageOcclusionCard } from "@/components/cards/ImageOcclusionCard";
+import { X, ChevronRight, Loader2, Heart, ShieldAlert, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react"; // Added
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -261,9 +262,16 @@ function StudyPageContent() {
           ))}
         </div>
 
-        <div style={{ display: "flex", gap: "1.5rem" }}>
-          <Link href="/dashboard" className="btn" style={{ background: "var(--bg-elevated)", color: "var(--text-primary)" }}>Dashboard</Link>
-          {allBatches && currentBatchIndex < allBatches.length - 1 ? (
+        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
+          <Link 
+            href="/classroom" 
+            className="btn btn-primary" 
+            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+          >
+            <BookOpen size={18} /> Back to Syllabus
+          </Link>
+
+          {allBatches && currentBatchIndex < allBatches.length - 1 && (
             <button 
               onClick={() => {
                 setSessionId(null);
@@ -277,9 +285,10 @@ function StudyPageContent() {
             >
               Continue to Part {currentBatchIndex + 2} <ChevronRight size={20} />
             </button>
-          ) : (
-            <Link href="/analytics" className="btn btn-primary">Review Stats</Link>
           )}
+
+          <Link href="/analytics" className="btn" style={{ background: "var(--bg-elevated)", color: "var(--text-primary)" }}>Review Stats</Link>
+          <Link href="/dashboard" className="btn" style={{ background: "var(--bg-elevated)", color: "var(--text-primary)" }}>Dashboard</Link>
         </div>
       </div>
     );

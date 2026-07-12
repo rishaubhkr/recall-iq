@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ContentRenderer } from "@/components/mdx/ContentRenderer";
 import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
@@ -22,6 +22,37 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
   const [currentMapping, setCurrentMapping] = useState<Record<number, number[]>>({});
   const [confidence, setConfidence] = useState(0);
   const [revealed, setRevealed] = useState(false);
+
+  const shuffledBIndices = useMemo(() => {
+    const bCount = (advancedMetadata?.matrixB || []).length;
+    const indices = Array.from({ length: bCount }, (_, i) => i);
+    if (bCount <= 1) return indices;
+
+    const mapping = advancedMetadata?.matrixMapping || {};
+
+    // Helper to check if ANY row i in Column B is directly across from its answer in Column A row i
+    const hasParallelMatch = (arr: number[]) => {
+      return arr.some((bIdx, rowIdx) => {
+        const targetForA = mapping[rowIdx] || mapping[String(rowIdx)] || [];
+        return targetForA.includes(bIdx);
+      });
+    };
+
+    // First try rotational shift by 1, 2, ... until no row is parallel to its match
+    for (let shift = 1; shift < bCount; shift++) {
+      const candidate = indices.map((_, i) => indices[(i + shift) % bCount]);
+      if (!hasParallelMatch(candidate)) {
+        return candidate;
+      }
+    }
+
+    // Next try reversing or alternating
+    const reversed = [...indices].reverse();
+    if (!hasParallelMatch(reversed)) return reversed;
+
+    // Guaranteed fallback for N >= 2: rotate by 1 so Column B is shifted relative to Column A
+    return indices.map((_, i) => indices[(i + 1) % bCount]);
+  }, [advancedMetadata]);
 
   const handleSelectA = (idx: number) => {
     if (revealed) return;
@@ -115,12 +146,13 @@ export function MatrixMatchCard({ front, back, advancedMetadata, onRate }: Matri
               Missing Metadata (Matrix B)
             </div>
           ) : (
-            (advancedMetadata?.matrixB || []).map((text, idx) => {
-              const isMatchedToSelected = selectedA !== null && (currentMapping[selectedA] || []).includes(idx);
+            shuffledBIndices.map((originalIdx) => {
+              const text = advancedMetadata?.matrixB?.[originalIdx];
+              const isMatchedToSelected = selectedA !== null && (currentMapping[selectedA] || []).includes(originalIdx);
               return (
                 <button
-                  key={idx}
-                  onClick={() => handleSelectB(idx)}
+                  key={originalIdx}
+                  onClick={() => handleSelectB(originalIdx)}
                   style={{
                     padding: "1rem",
                     background: isMatchedToSelected ? "rgba(88, 204, 2, 0.1)" : "var(--bg-elevated)",
