@@ -168,7 +168,12 @@ export function CardEditor({
               return (
                 <button
                   key={t}
-                  onClick={() => setType(t)}
+                  onClick={() => {
+                    setType(t);
+                    if (t === "true_false_justify" && back !== "True" && back !== "False") {
+                      setBack("True");
+                    }
+                  }}
                   style={{
                     padding: "0.75rem 0.5rem",
                     border: `2px solid ${isActive ? meta.border : "var(--border)"}`,
@@ -234,15 +239,40 @@ export function CardEditor({
         </Field>
 
         {/* Back */}
-        <Field label="Back / Explanation">
-          <textarea
-            className="input textarea"
-            value={back}
-            onChange={(e) => setBack(e.target.value)}
-            placeholder="Full answer with explanation. Markdown + KaTeX supported."
-            rows={5}
-          />
-        </Field>
+        {type === "true_false_justify" ? (
+          <Field label="Correct Answer (True / False)">
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              {["True", "False"].map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setBack(val)}
+                  style={{
+                    padding: "0.5rem 1.5rem",
+                    borderRadius: "10px",
+                    fontWeight: 700,
+                    border: `2px solid ${back === val ? (val === "True" ? "#10B981" : "#FF4B4B") : "var(--border)"}`,
+                    background: back === val ? (val === "True" ? "rgba(16,185,129,0.15)" : "rgba(255,75,75,0.1)") : "transparent",
+                    color: back === val ? (val === "True" ? "#10B981" : "#FF4B4B") : "var(--text-muted)",
+                    cursor: "pointer"
+                  }}
+                >
+                  {val.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </Field>
+        ) : (
+          <Field label="Back / Explanation">
+            <textarea
+              className="input textarea"
+              value={back}
+              onChange={(e) => setBack(e.target.value)}
+              placeholder="Full answer with explanation. Markdown + KaTeX supported."
+              rows={5}
+            />
+          </Field>
+        )}
 
         {/* MCQ options */}
         {type === "mcq" && (
@@ -482,7 +512,7 @@ export function CardEditor({
         <button
           className="btn btn-primary"
           onClick={handleSave}
-          disabled={isSaving || !front.trim() || !back.trim()}
+          disabled={isSaving || !front.trim()}
           style={{ alignSelf: "flex-start", padding: "0.75rem 2rem" }}
         >
           <Save size={16} />
@@ -512,9 +542,9 @@ export function CardEditor({
 
           {preview === "interactive" ? (
             <div style={{ flex: 1 }}>
-              {(!front.trim() || !back.trim()) ? (
+              {!front.trim() ? (
                 <div style={{ minHeight: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                  <em>Please enter Front and Back content to preview...</em>
+                  <em>Please enter Front content to preview...</em>
                 </div>
               ) : (
                 <div key={`${type}-${front.length}-${back.length}-${options.join(",")}-${correctOption}-${correctOptions.join(",")}-${clozeTemplate.length}-${JSON.stringify(advancedMetadata)}`}>
