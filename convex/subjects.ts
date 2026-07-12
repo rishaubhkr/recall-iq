@@ -163,6 +163,19 @@ export const listSubtopicsByTopic = query({
   },
 });
 
+export const getSubtopicPath = query({
+  args: { subtopicId: v.id("subtopics") },
+  handler: async (ctx, args) => {
+    const subtopic = await ctx.db.get(args.subtopicId);
+    if (!subtopic) return null;
+    const topic = await ctx.db.get(subtopic.topicId);
+    if (!topic) return subtopic.name;
+    const subject = await ctx.db.get(topic.subjectId);
+    if (!subject) return `${topic.name} → ${subtopic.name}`;
+    return `${subject.name} → ${topic.name} → ${subtopic.name}`;
+  },
+});
+
 export const createSubtopic = mutation({
   args: {
     topicId: v.id("topics"),

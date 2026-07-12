@@ -3,18 +3,36 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
-import { Search, Plus, Trash2, Loader2, FileText, Eye, EyeOff, Layers, X } from "lucide-react";
+import { Search, Plus, Trash2, Loader2, FileText, Eye, EyeOff, Layers, X, Edit } from "lucide-react";
 import Link from "next/link";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { FlashCard } from "@/components/cards/FlashCard";
 import { MCQCard } from "@/components/cards/MCQCard";
 import { ClozeCard } from "@/components/cards/ClozeCard";
+import { NumericalEntryCard } from "@/components/cards/NumericalEntryCard";
+import { MultiSelectCard } from "@/components/cards/MultiSelectCard";
+import { AssertionReasonCard } from "@/components/cards/AssertionReasonCard";
+import { TrueFalseJustifyCard } from "@/components/cards/TrueFalseJustifyCard";
+import { ErrorSpottingCard } from "@/components/cards/ErrorSpottingCard";
+import { ConceptInterleaveCard } from "@/components/cards/ConceptInterleaveCard";
+import { SequencingCard } from "@/components/cards/SequencingCard";
+import { MatrixMatchCard } from "@/components/cards/MatrixMatchCard";
+import { ImageOcclusionCard } from "@/components/cards/ImageOcclusionCard";
 
 const TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
-  flashcard:   { label: "FLA", color: "#60A5FA", bg: "rgba(96,165,250,0.12)" },
-  mcq:         { label: "MCQ", color: "#34D399", bg: "rgba(52,211,153,0.12)" },
-  cloze:       { label: "CLZ", color: "#F472B6", bg: "rgba(244,114,182,0.12)" },
-  elaborative: { label: "ELB", color: "#A78BFA", bg: "rgba(167,139,250,0.12)" },
+  flashcard:          { label: "FLA", color: "#60A5FA", bg: "rgba(96,165,250,0.12)" },
+  mcq:                { label: "MCQ", color: "#34D399", bg: "rgba(52,211,153,0.12)" },
+  cloze:              { label: "CLZ", color: "#F472B6", bg: "rgba(244,114,182,0.12)" },
+  elaborative:        { label: "ELB", color: "#A78BFA", bg: "rgba(167,139,250,0.12)" },
+  numerical:          { label: "NUM", color: "#F59E0B", bg: "rgba(245,158,11,0.12)" },
+  multi_select:       { label: "MUL", color: "#8B5CF6", bg: "rgba(139,92,246,0.12)" },
+  assertion_reason:   { label: "ASR", color: "#10B981", bg: "rgba(16,185,129,0.12)" },
+  true_false_justify: { label: "TFJ", color: "#06B6D4", bg: "rgba(6,182,212,0.12)" },
+  error_spotting:     { label: "ERR", color: "#EF4444", bg: "rgba(239,68,68,0.12)" },
+  concept_interleave: { label: "INT", color: "#14B8A6", bg: "rgba(20,184,166,0.12)" },
+  sequencing:         { label: "SEQ", color: "#6366F1", bg: "rgba(99,102,241,0.12)" },
+  matrix_match:       { label: "MTX", color: "#EC4899", bg: "rgba(236,72,153,0.12)" },
+  image_occlusion:    { label: "IMG", color: "#F97316", bg: "rgba(249,115,22,0.12)" },
 };
 
 export default function AdminCardsPage() {
@@ -367,7 +385,7 @@ export default function AdminCardsPage() {
                   }}>
                     {card.tier}
                   </span>
-                  {card.tags.slice(0, 4).map((t) => (
+                  {card.tags.slice(0, 4).map((t: string) => (
                     <span key={t} style={{
                       fontSize: "0.65rem", padding: "0.15rem 0.5rem", borderRadius: "6px",
                       background: "rgba(255,255,255,0.04)", color: "var(--text-muted)",
@@ -396,6 +414,16 @@ export default function AdminCardsPage() {
 
               {/* Actions */}
               <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0, alignItems: "center" }}>
+                <Link
+                  href={`/admin/cards/edit?cardId=${card._id}`}
+                  className="action-btn"
+                  title="Edit Card"
+                  style={{ color: "var(--text-muted)", display: "flex", alignItems: "center" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+                >
+                  <Edit size={16} />
+                </Link>
                 <button
                   className="action-btn"
                   onClick={() => setPreviewCard(card)}
@@ -509,22 +537,36 @@ export default function AdminCardsPage() {
             overflow: "hidden" // Keeps everything, including scrollbar, within rounded corners
           }} onClick={e => e.stopPropagation()}>
             
-            {/* Floating Close Button */}
-            <button 
-              onClick={() => setPreviewCard(null)}
-              style={{
-                position: "absolute", top: "1.5rem", right: "2rem", // Moved away from scrollbar
-                background: "var(--bg-elevated)", border: "1px solid var(--border)", 
-                color: "var(--text-primary)", cursor: "pointer",
-                padding: "0.5rem", borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.2s", zIndex: 50
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "var(--border)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
-            >
-              <X size={18} />
-            </button>
+            {/* Floating Close & Edit Buttons */}
+            <div style={{ position: "absolute", top: "1.5rem", right: "2rem", display: "flex", gap: "0.5rem", zIndex: 50, alignItems: "center" }}>
+              <Link 
+                href={`/admin/cards/edit?cardId=${previewCard._id}`}
+                className="btn btn-ghost"
+                onClick={() => setPreviewCard(null)}
+                style={{
+                  padding: "0.35rem 0.85rem", borderRadius: "10px", fontSize: "0.75rem",
+                  background: "var(--bg-elevated)", border: "1px solid var(--border)", 
+                  color: "var(--accent)", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.35rem",
+                  textDecoration: "none"
+                }}
+              >
+                <Edit size={14} /> Edit Card
+              </Link>
+              <button 
+                onClick={() => setPreviewCard(null)}
+                style={{
+                  background: "var(--bg-elevated)", border: "1px solid var(--border)", 
+                  color: "var(--text-primary)", cursor: "pointer",
+                  padding: "0.5rem", borderRadius: "50%",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "var(--border)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+              >
+                <X size={18} />
+              </button>
+            </div>
 
             <style>{`
               @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
@@ -540,10 +582,12 @@ export default function AdminCardsPage() {
             }}>
               {/* Inner Wrapper (Provides the generous padding) */}
               <div style={{ padding: "4rem 3.5rem 3.5rem 3.5rem" }}>
-                {previewCard.type === "flashcard" && (
+                {(previewCard.type === "flashcard" || previewCard.type === "elaborative") && (
                   <FlashCard 
                     front={previewCard.front} 
                     back={previewCard.back} 
+                    whyPrompt={previewCard.whyPrompt}
+                    mentalHook={previewCard.mentalHook}
                     onRate={() => {}} 
                   />
                 )}
@@ -553,7 +597,7 @@ export default function AdminCardsPage() {
                     front={previewCard.front} 
                     options={previewCard.options || []} 
                     correctOption={previewCard.correctOption ?? 0}
-                    whyPrompt={previewCard.whyPrompt}
+                    back={previewCard.back}
                     onRate={() => {}} 
                   />
                 )}
@@ -562,8 +606,90 @@ export default function AdminCardsPage() {
                   <ClozeCard 
                     front={previewCard.front} 
                     clozeTemplate={previewCard.clozeTemplate || ""}
-                    whyPrompt={previewCard.whyPrompt}
+                    back={previewCard.back}
                     onRate={() => {}} 
+                  />
+                )}
+
+                {previewCard.type === "numerical" && (
+                  <NumericalEntryCard
+                    front={previewCard.front}
+                    back={previewCard.back}
+                    advancedMetadata={previewCard.advancedMetadata || {}}
+                    onRate={() => {}}
+                  />
+                )}
+
+                {previewCard.type === "multi_select" && (
+                  <MultiSelectCard
+                    front={previewCard.front}
+                    options={previewCard.options || []}
+                    advancedMetadata={previewCard.advancedMetadata || {}}
+                    back={previewCard.back}
+                    onRate={() => {}}
+                  />
+                )}
+
+                {previewCard.type === "assertion_reason" && (
+                  <AssertionReasonCard
+                    front={previewCard.front}
+                    back={previewCard.back}
+                    advancedMetadata={previewCard.advancedMetadata || {}}
+                    onRate={() => {}}
+                  />
+                )}
+
+                {previewCard.type === "true_false_justify" && (
+                  <TrueFalseJustifyCard
+                    front={previewCard.front}
+                    back={previewCard.back}
+                    advancedMetadata={previewCard.advancedMetadata || {}}
+                    onRate={() => {}}
+                  />
+                )}
+
+                {previewCard.type === "error_spotting" && (
+                  <ErrorSpottingCard
+                    front={previewCard.front}
+                    back={previewCard.back}
+                    advancedMetadata={previewCard.advancedMetadata || {}}
+                    onRate={() => {}}
+                  />
+                )}
+
+                {previewCard.type === "concept_interleave" && (
+                  <ConceptInterleaveCard
+                    front={previewCard.front}
+                    back={previewCard.back}
+                    onRate={() => {}}
+                  />
+                )}
+
+                {previewCard.type === "sequencing" && (
+                  <SequencingCard
+                    front={previewCard.front}
+                    back={previewCard.back}
+                    options={previewCard.options || []}
+                    advancedMetadata={previewCard.advancedMetadata || {}}
+                    onRate={() => {}}
+                  />
+                )}
+
+                {previewCard.type === "matrix_match" && (
+                  <MatrixMatchCard
+                    front={previewCard.front}
+                    back={previewCard.back}
+                    advancedMetadata={previewCard.advancedMetadata || {}}
+                    onRate={() => {}}
+                  />
+                )}
+
+                {previewCard.type === "image_occlusion" && (
+                  <ImageOcclusionCard
+                    front={previewCard.front}
+                    back={previewCard.back}
+                    advancedMetadata={previewCard.advancedMetadata || {}}
+                    onRate={() => {}}
                   />
                 )}
               </div>

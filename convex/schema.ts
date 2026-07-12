@@ -92,6 +92,7 @@ export default defineSchema({
     // MCQ-specific
     options: v.optional(v.array(v.string())),
     correctOption: v.optional(v.number()),
+    correctOptions: v.optional(v.array(v.number())),
     // Cloze-specific: [[blank]] template syntax
     clozeTemplate: v.optional(v.string()),
     // Elaborative follow-up ("Why does this work?")

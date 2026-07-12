@@ -6,6 +6,7 @@ import { useConvexUser } from "@/hooks/useConvexUser";
 import { BookOpen, CheckCircle, ChevronRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 export default function CoursesPage() {
   const { convexUserId, isLoading: userLoading } = useConvexUser();

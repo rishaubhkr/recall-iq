@@ -58,7 +58,7 @@ export default function NewCardPage() {
     try {
       await createCard({
         subtopicId: selectedSubtopicId as Id<"subtopics">,
-        type: data.type,
+        type: data.type as any,
         tier: data.tier,
         front: data.front,
         back: data.back,

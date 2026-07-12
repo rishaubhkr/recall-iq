@@ -5,6 +5,18 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { Save } from "lucide-react";
+import { FlashCard } from "@/components/cards/FlashCard";
+import { MCQCard } from "@/components/cards/MCQCard";
+import { ClozeCard } from "@/components/cards/ClozeCard";
+import { NumericalEntryCard } from "@/components/cards/NumericalEntryCard";
+import { MultiSelectCard } from "@/components/cards/MultiSelectCard";
+import { AssertionReasonCard } from "@/components/cards/AssertionReasonCard";
+import { TrueFalseJustifyCard } from "@/components/cards/TrueFalseJustifyCard";
+import { ErrorSpottingCard } from "@/components/cards/ErrorSpottingCard";
+import { ConceptInterleaveCard } from "@/components/cards/ConceptInterleaveCard";
+import { SequencingCard } from "@/components/cards/SequencingCard";
+import { MatrixMatchCard } from "@/components/cards/MatrixMatchCard";
+import { ImageOcclusionCard } from "@/components/cards/ImageOcclusionCard";
 
 interface CardEditorProps {
   initialType?: string;
@@ -107,7 +119,7 @@ export function CardEditor({
   const [advancedMetadata, setAdvancedMetadata] = useState(initialAdvancedMetadata);
   const [tier, setTier] = useState<"free" | "premium">(initialTier);
   const [tagInput, setTagInput] = useState(initialTags.join(", "));
-  const [preview, setPreview] = useState<"front" | "back" | "full">("front");
+  const [preview, setPreview] = useState<"front" | "back" | "full" | "interactive">("interactive");
 
   const handleSave = async () => {
     const tags = tagInput.split(",").map((t) => t.trim()).filter(Boolean);
@@ -481,51 +493,102 @@ export function CardEditor({
       {/* ── Right: Live Preview ───────────────────────────────── */}
       <div style={{ position: "sticky", top: "2rem" }}>
         <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-          {(["front", "back", "full"] as const).map((p) => (
+          {(["interactive", "front", "back", "full"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setPreview(p)}
               className={preview === p ? "btn btn-primary" : "btn btn-ghost"}
-              style={{ fontSize: "0.75rem", padding: "0.375rem 0.875rem" }}
+              style={{ fontSize: "0.75rem", padding: "0.375rem 0.875rem", textTransform: "capitalize" }}
             >
-              {p === "front" ? "Front" : p === "back" ? "Back" : "Full Card"}
+              {p}
             </button>
           ))}
         </div>
 
-        <div className="card card-elevated" style={{ minHeight: 300 }}>
+        <div className="card card-elevated" style={{ minHeight: 300, display: "flex", flexDirection: "column" }}>
           <p style={{ fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--accent)", marginBottom: "1rem" }}>
-            Live Preview
+            Live Preview ({preview})
           </p>
 
-          {(preview === "front" || preview === "full") && (
-            <div style={{ marginBottom: preview === "full" ? "1.5rem" : 0 }}>
-              <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 600 }}>FRONT</p>
-              <MarkdownPreview content={front} />
+          {preview === "interactive" ? (
+            <div style={{ flex: 1 }}>
+              {(!front.trim() || !back.trim()) ? (
+                <div style={{ minHeight: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                  <em>Please enter Front and Back content to preview...</em>
+                </div>
+              ) : (
+                <div key={`${type}-${front.length}-${back.length}-${options.join(",")}-${correctOption}-${correctOptions.join(",")}-${clozeTemplate.length}-${JSON.stringify(advancedMetadata)}`}>
+                  {(type === "flashcard" || type === "elaborative") && (
+                    <FlashCard front={front} back={back} whyPrompt={whyPrompt} onRate={() => {}} />
+                  )}
+                  {type === "mcq" && (
+                    <MCQCard front={front} back={back} options={options} correctOption={correctOption} onRate={() => {}} />
+                  )}
+                  {type === "cloze" && (
+                    <ClozeCard front={front} back={back} clozeTemplate={clozeTemplate} onRate={() => {}} />
+                  )}
+                  {type === "numerical" && (
+                    <NumericalEntryCard front={front} back={back} advancedMetadata={advancedMetadata} onRate={() => {}} />
+                  )}
+                  {type === "multi_select" && (
+                    <MultiSelectCard front={front} back={back} options={options} advancedMetadata={advancedMetadata} onRate={() => {}} />
+                  )}
+                  {type === "assertion_reason" && (
+                    <AssertionReasonCard front={front} back={back} advancedMetadata={advancedMetadata} onRate={() => {}} />
+                  )}
+                  {type === "true_false_justify" && (
+                    <TrueFalseJustifyCard front={front} back={back} advancedMetadata={advancedMetadata} onRate={() => {}} />
+                  )}
+                  {type === "error_spotting" && (
+                    <ErrorSpottingCard front={front} back={back} advancedMetadata={advancedMetadata} onRate={() => {}} />
+                  )}
+                  {type === "concept_interleave" && (
+                    <ConceptInterleaveCard front={front} back={back} onRate={() => {}} />
+                  )}
+                  {type === "sequencing" && (
+                    <SequencingCard front={front} back={back} options={options} advancedMetadata={advancedMetadata} onRate={() => {}} />
+                  )}
+                  {type === "matrix_match" && (
+                    <MatrixMatchCard front={front} back={back} advancedMetadata={advancedMetadata} onRate={() => {}} />
+                  )}
+                  {type === "image_occlusion" && (
+                    <ImageOcclusionCard front={front} back={back} advancedMetadata={advancedMetadata} onRate={() => {}} />
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          ) : (
+            <div style={{ flex: 1 }}>
+              {(preview === "front" || preview === "full") && (
+                <div style={{ marginBottom: preview === "full" ? "1.5rem" : 0 }}>
+                  <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 600 }}>FRONT</p>
+                  <MarkdownPreview content={front} />
+                </div>
+              )}
 
-          {(preview === "back" || preview === "full") && (
-            <div>
-              {preview === "full" && <div className="divider" />}
-              <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 600 }}>BACK</p>
-              <MarkdownPreview content={back} />
-            </div>
-          )}
+              {(preview === "back" || preview === "full") && (
+                <div>
+                  {preview === "full" && <div className="divider" />}
+                  <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 600 }}>BACK</p>
+                  <MarkdownPreview content={back} />
+                </div>
+              )}
 
-          {type === "cloze" && clozeTemplate && preview !== "back" && (
-            <div style={{ marginTop: "1rem" }}>
-              <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 600 }}>CLOZE TEMPLATE</p>
-              <MarkdownPreview content={clozeTemplate.replace(/\[\[(.+?)\]\]/g, "_____")} />
-            </div>
-          )}
+              {type === "cloze" && clozeTemplate && preview !== "back" && (
+                <div style={{ marginTop: "1rem" }}>
+                  <p style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "0.5rem", fontWeight: 600 }}>CLOZE TEMPLATE</p>
+                  <MarkdownPreview content={clozeTemplate.replace(/\[\[(.+?)\]\]/g, "_____")} />
+                </div>
+              )}
 
-          {whyPrompt && (
-            <div style={{ marginTop: "1rem", padding: "0.75rem", background: "var(--accent-glow)", borderRadius: "var(--radius-sm)" }}>
-              <p style={{ fontSize: "0.65rem", color: "var(--accent)", fontWeight: 700, marginBottom: "0.4rem" }}>WHY PROMPT</p>
-              <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                <ReactMarkdown {...MD_OPTS}>{whyPrompt}</ReactMarkdown>
-              </div>
+              {whyPrompt && (
+                <div style={{ marginTop: "1rem", padding: "0.75rem", background: "var(--accent-glow)", borderRadius: "var(--radius-sm)" }}>
+                  <p style={{ fontSize: "0.65rem", color: "var(--accent)", fontWeight: 700, marginBottom: "0.4rem" }}>WHY PROMPT</p>
+                  <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                    <ReactMarkdown {...MD_OPTS}>{whyPrompt}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
