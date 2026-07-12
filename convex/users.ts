@@ -80,10 +80,38 @@ export const recordActivity = mutation({
 export const getLeaderboard = query({
   args: {},
   handler: async (ctx) => {
-    return ctx.db
+    const topUsers = await ctx.db
       .query("users")
       .withIndex("by_xp")
       .order("desc")
       .take(20);
+
+    return topUsers.map(user => ({
+      _id: user._id,
+      displayName: user.displayName,
+      streak: user.streak,
+      totalReviews: user.totalReviews,
+      xp: user.xp,
+    }));
+  },
+});
+
+// ─── Anonymize user data on deletion (GDPR compliant soft-delete) ──────────
+export const anonymizeUser = mutation({
+  args: { clerkId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .unique();
+
+    if (!user) return;
+
+    await ctx.db.patch(user._id, {
+      email: "[REDACTED]",
+      displayName: "Deleted User",
+      clerkId: "deleted_" + args.clerkId,
+      streak: 0,
+    });
   },
 });

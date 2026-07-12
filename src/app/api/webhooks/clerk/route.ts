@@ -64,8 +64,8 @@ export async function POST(req: Request) {
   }
 
   if (evt.type === "user.deleted") {
-    // Soft-delete or anonymize — no hard delete to preserve review history
-    console.log(`User deleted: ${evt.data.id}`);
+    const { id } = evt.data;
+    await convex.mutation(api.users.anonymizeUser, { clerkId: id });
   }
 
   return NextResponse.json({ ok: true });
