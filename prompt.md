@@ -43,6 +43,9 @@ type	front	back	options	correctOption	clozeTemplate	whyPrompt	tags	subtopicSlug	
    - "flashcard": Standard Q&A. front="Question", back="Answer".
    - "cloze": Fill-in-the-blank. front=[EMPTY], back=[EMPTY], clozeTemplate="This is a [[c1::cloze template]]."
      * CRITICAL CLOZE DELIMITERS RULE: Always use double square brackets [[c1::blank answer]] for cloze templates (never use curly braces {{c1::blank answer}}). LaTeX math syntax heavily relies on curly braces {} (e.g., \frac{a}{b}), which creates brace matching conflicts with curly brace clozes and corrupts the card rendering.
+     * CRITICAL MATH FORMULA RULE: Never put mathematical equations or LaTeX formulas containing formatting macros (such as \frac, \vec, \hat, \vert) inside cloze blanks [[c1::...]]. Students cannot type raw LaTeX code into fill-in-the-blank fields. If a formula is being tested:
+       1. Use "flashcard" (where students write the formula on paper, reveal, and self-rate their recall) or "mcq" (where they select the correct formula from options).
+       2. If you absolutely must use "cloze" to test a formula, the blank must be a simple plain-text equivalence (e.g., [[c1::vector / magnitude]] or [[c1::direction]]), never a LaTeX equation.
    - "mcq": front="Question", back=[EMPTY], options="Option A | Option B | Option C | Option D", correctOption="0".
    - "multi_select": front="Question", back=[EMPTY], options="Option A | Option B | Option C", advancedMetadata={"correctOptions": [0, 2]}
    - "numerical": front="Calculate value...", back=[EMPTY], advancedMetadata={"numericalAnswer": 12.27, "numericalTolerance": 0.05}
