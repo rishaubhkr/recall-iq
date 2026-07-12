@@ -106,8 +106,7 @@ h4 {
 }
 
 code,
-.math-inline,
-.katex {
+.math-inline {
   font-family: var(--font-mono) !important;
 }
 
