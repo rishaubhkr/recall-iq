@@ -41,7 +41,8 @@ type	front	back	options	correctOption	clozeTemplate	whyPrompt	tags	subtopicSlug	
 4. JSON in TSV: The 'advancedMetadata' field must be a valid JSON string without double-quotes wrapping the outer JSON unless escaped. Do NOT use tabs inside the JSON.
 5. Formatting by type (CRITICAL: Omitted fields must be exactly [EMPTY]):
    - "flashcard": Standard Q&A. front="Question", back="Answer".
-   - "cloze": Fill-in-the-blank. front=[EMPTY], back=[EMPTY], clozeTemplate="This is a {{c1::cloze template}}."
+   - "cloze": Fill-in-the-blank. front=[EMPTY], back=[EMPTY], clozeTemplate="This is a [[c1::cloze template]]."
+     * CRITICAL CLOZE DELIMITERS RULE: Always use double square brackets [[c1::blank answer]] for cloze templates (never use curly braces {{c1::blank answer}}). LaTeX math syntax heavily relies on curly braces {} (e.g., \frac{a}{b}), which creates brace matching conflicts with curly brace clozes and corrupts the card rendering.
    - "mcq": front="Question", back=[EMPTY], options="Option A | Option B | Option C | Option D", correctOption="0".
    - "multi_select": front="Question", back=[EMPTY], options="Option A | Option B | Option C", advancedMetadata={"correctOptions": [0, 2]}
    - "numerical": front="Calculate value...", back=[EMPTY], advancedMetadata={"numericalAnswer": 12.27, "numericalTolerance": 0.05}
