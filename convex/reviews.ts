@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { retrievability, schedule, newCardState, type Rating } from "./fsrs";
+import { validateUserOwnership } from "./authHelpers";
 
 // ─── Record a review and update FSRS state ───────────────────────────────────
 export const recordReview = mutation({
@@ -14,6 +15,9 @@ export const recordReview = mutation({
     responseMs: v.number(),
   },
   handler: async (ctx, args) => {
+    // Validate identity ownership to prevent IDOR
+    await validateUserOwnership(ctx, args.userId);
+
     const now = Date.now();
 
     // Log the review
@@ -172,6 +176,9 @@ export const getDueCards = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // Validate identity ownership to prevent IDOR
+    await validateUserOwnership(ctx, args.userId);
+
     const limit = args.limit ?? 100;
     const now = Date.now();
 
@@ -238,10 +245,13 @@ export const getNewCards = query({
     topicId: v.optional(v.id("topics")),
     subjectId: v.optional(v.id("subjects")),
     courseId: v.optional(v.id("courses")),
-    userTier: v.union(v.literal("free"), v.literal("premium"), v.literal("admin")),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // Validate identity ownership to prevent IDOR
+    const caller = await validateUserOwnership(ctx, args.userId);
+    const userTier = caller.tier;
+
     const limit = args.limit ?? 100;
 
     let validSubtopicIds: Set<string> | null = null;
@@ -301,7 +311,7 @@ export const getNewCards = query({
           c.isPublished &&
           !seenCardIds.has(c._id.toString()) &&
           !archivedCardIds.has(c._id.toString()) &&
-          (args.userTier !== "free" || c.tier === "free"),
+          (userTier !== "free" || c.tier === "free"),
       )
       .map(c => {
         const state = seenStates.find(s => s.cardId === c._id);

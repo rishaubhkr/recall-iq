@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { validateAdmin, validateUserOwnership } from "./authHelpers";
 
 // ─── Get or create user on first login ───────────────────────────────────────
 export const getOrCreate = mutation({
@@ -49,6 +50,8 @@ export const updateTier = mutation({
     tier: v.union(v.literal("free"), v.literal("premium"), v.literal("admin")),
   },
   handler: async (ctx, args) => {
+    // Escalate security: Only authenticated admins can modify user subscription tiers
+    await validateAdmin(ctx);
     await ctx.db.patch(args.userId, { tier: args.tier });
   },
 });
@@ -57,6 +60,9 @@ export const updateTier = mutation({
 export const recordActivity = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    // IDOR check: Verify caller is updating their own streak record
+    await validateUserOwnership(ctx, args.userId);
+
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error("User not found");
 

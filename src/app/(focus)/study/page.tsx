@@ -119,7 +119,7 @@ function StudyPageContent() {
 
   const newQueue = useQuery(
     api.reviews.getNewCards,
-    convexUserId && tier ? { userId: convexUserId, userTier: tier as any, subtopicIds, topicId, subjectId, courseId, limit: 100 } : "skip",
+    convexUserId ? { userId: convexUserId, subtopicIds, topicId, subjectId, courseId, limit: 100 } : "skip",
   );
 
   const [currentBatchIndex, setCurrentBatchIndex] = useState(0);

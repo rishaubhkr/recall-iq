@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { validateUserOwnership } from "./authHelpers";
 
 export const getUserCards = query({
   args: {
@@ -8,6 +9,9 @@ export const getUserCards = query({
     isArchived: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // Validate identity ownership to prevent IDOR
+    await validateUserOwnership(ctx, args.userId);
+
     // 1. Get all user states
     const statesQuery = ctx.db
       .query("userCardState")
@@ -76,6 +80,9 @@ export const toggleArchiveCard = mutation({
     archive: v.boolean(),
   },
   handler: async (ctx, args) => {
+    // Validate identity ownership to prevent IDOR
+    await validateUserOwnership(ctx, args.userId);
+
     const existing = await ctx.db
       .query("userCardState")
       .withIndex("by_user_card", (q) => q.eq("userId", args.userId).eq("cardId", args.cardId))
@@ -111,6 +118,9 @@ export const archiveByCourse = mutation({
     archive: v.boolean(),
   },
   handler: async (ctx, args) => {
+    // Validate identity ownership to prevent IDOR
+    await validateUserOwnership(ctx, args.userId);
+
     // This is expensive as it requires scanning or careful joins
     // 1. Get all subjects in course
     const subjects = await ctx.db
@@ -159,6 +169,9 @@ export const saveMentalHook = mutation({
     hook: v.string(),
   },
   handler: async (ctx, args) => {
+    // Validate identity ownership to prevent IDOR
+    await validateUserOwnership(ctx, args.userId);
+
     const existing = await ctx.db
       .query("userCardState")
       .withIndex("by_user_card", (q) => q.eq("userId", args.userId).eq("cardId", args.cardId))
