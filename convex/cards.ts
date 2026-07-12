@@ -58,7 +58,24 @@ export const createCard = mutation({
 export const updateCard = mutation({
   args: {
     id: v.id("cards"),
-    type: v.optional(v.string()),
+    type: v.optional(
+      v.union(
+        v.literal("flashcard"),
+        v.literal("mcq"),
+        v.literal("cloze"),
+        v.literal("elaborative"),
+        v.literal("numerical"),
+        v.literal("assertion_reason"),
+        v.literal("error_spotting"),
+        v.literal("matrix_match"),
+        v.literal("sequencing"),
+        v.literal("concept_interleave"),
+        v.literal("image_occlusion"),
+        v.literal("graph_id"),
+        v.literal("multi_select"),
+        v.literal("true_false_justify")
+      )
+    ),
     front: v.optional(v.string()),
     back: v.optional(v.string()),
     tier: v.optional(v.union(v.literal("free"), v.literal("premium"))),
