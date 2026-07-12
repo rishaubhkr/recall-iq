@@ -435,6 +435,36 @@ export default function BulkImportPage() {
 
   return (
     <div className="animate-in" style={{ maxWidth: 1100, margin: "0 auto", paddingBottom: "4rem" }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .import-input::placeholder {
+          color: rgba(255, 255, 255, 0.45) !important;
+          opacity: 1 !important;
+        }
+        .import-input:focus {
+          border-color: var(--accent) !important;
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15) !important;
+        }
+        .import-input {
+          transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease !important;
+        }
+        .bulk-delete-btn {
+          transition: all 0.2s ease !important;
+        }
+        .bulk-delete-btn:hover {
+          background: rgba(239, 68, 68, 0.15) !important;
+          border-color: rgba(239, 68, 68, 0.4) !important;
+          color: #f87171 !important;
+        }
+        .row-delete-btn {
+          transition: opacity 0.2s ease, transform 0.2s ease !important;
+        }
+        .row-delete-btn:hover {
+          opacity: 1 !important;
+          transform: scale(1.1);
+          color: #ef4444 !important;
+        }
+      `}} />
       
       {/* --- Standard Header --- */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "2rem", gap: "1rem", flexWrap: "wrap" }}>
@@ -479,7 +509,7 @@ export default function BulkImportPage() {
           <Layers size={18} className="text-accent" /> Hierarchy Setup
         </h3>
         
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem" }}>
           {[
             { label: "Course", val: selectedCourseId, set: setSelectedCourseId, data: courses },
             { label: "Subject", val: selectedSubjectId, set: setSelectedSubjectId, data: subjects, disabled: !selectedCourseId },
@@ -487,7 +517,7 @@ export default function BulkImportPage() {
             { label: "Subtopic", val: selectedSubtopicId, set: setSelectedSubtopicId, data: subtopics, disabled: !selectedTopicId }
           ].map((sel, i) => (
             <div key={i}>
-              <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.4rem", fontWeight: 600 }}>{sel.label}</label>
+              <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-secondary)", marginBottom: "0.5rem", fontWeight: 600 }}>{sel.label}</label>
               <select 
                 value={sel.val}
                 disabled={sel.disabled}
@@ -500,8 +530,17 @@ export default function BulkImportPage() {
                     if (sub?.slug) setRows(prev => prev.map(r => r.subtopicSlug ? r : { ...r, subtopicSlug: sub.slug }));
                   }
                 }}
-                className="input"
-                style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "10px", padding: "0.75rem", appearance: "none" }}
+                className="input import-input"
+                style={{ 
+                  width: "100%", 
+                  background: "rgba(255, 255, 255, 0.03)", 
+                  border: "1px solid rgba(255, 255, 255, 0.12)", 
+                  borderRadius: "10px", 
+                  padding: "0.75rem 1rem", 
+                  appearance: "none",
+                  color: "var(--text-primary)",
+                  cursor: "pointer"
+                }}
               >
                 <option value="">Select {sel.label}</option>
                 {sel.data?.map((item: { _id: string; name: string }) => <option key={item._id} value={item._id}>{item.name}</option>)}
@@ -525,7 +564,7 @@ export default function BulkImportPage() {
         <div style={{ overflowX: "auto", paddingBottom: "1rem" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.9rem", minWidth: "800px" }}>
             <thead>
-              <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--text-muted)" }}>
+              <tr style={{ borderBottom: "1px solid var(--border)", color: "rgba(255, 255, 255, 0.75)" }}>
                 <th style={{ padding: "1rem 0.5rem", width: "40px", textAlign: "center" }}>
                   <input 
                     type="checkbox" 
@@ -553,47 +592,85 @@ export default function BulkImportPage() {
 
                 return (
                   <tr key={idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: isSelected ? "rgba(245, 158, 11, 0.03)" : "transparent" }}>
-                    <td style={{ padding: "1rem 0.5rem", textAlign: "center", display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: "center" }}>
-                      <input 
-                        type="checkbox" 
-                        checked={isSelected}
-                        onChange={() => toggleSelect(idx)}
-                        style={{ cursor: "pointer", width: "16px", height: "16px" }}
-                      />
-                      {error ? <AlertCircle size={14} color="var(--error)" title={error} /> : <CheckCircle size={14} color="var(--success)" />}
+                    <td style={{ padding: "1rem 0.5rem", verticalAlign: "middle" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", justifyContent: "center" }}>
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => toggleSelect(idx)}
+                          style={{ cursor: "pointer", width: "16px", height: "16px", margin: 0 }}
+                        />
+                        <div style={{ display: "inline-flex", alignItems: "center" }}>
+                          {error ? (
+                            <div title={error} style={{ display: "inline-flex", alignItems: "center", cursor: "help" }}>
+                              <AlertCircle size={15} color="var(--error)" />
+                            </div>
+                          ) : (
+                            <CheckCircle size={15} color="var(--success)" />
+                          )}
+                        </div>
+                      </div>
                     </td>
-                    <td style={{ padding: "1rem 0.5rem" }}>
+                    <td style={{ padding: "1rem 0.5rem", verticalAlign: "middle" }}>
                       <select 
                         value={row.type}
                         onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, type: e.target.value } : r))}
-                        className="input"
-                        style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem" }}
+                        className="input import-input"
+                        style={{ 
+                          width: "100%", 
+                          background: "rgba(255, 255, 255, 0.03)", 
+                          border: "1px solid rgba(255, 255, 255, 0.12)", 
+                          borderRadius: "8px", 
+                          padding: "0.5rem", 
+                          fontSize: "0.85rem",
+                          color: "var(--text-primary)"
+                        }}
                       >
                         {VALID_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </td>
-                    <td style={{ padding: "1rem 0.5rem" }}>
+                    <td style={{ padding: "1rem 0.5rem", verticalAlign: "middle" }}>
                       {isCloze ? (
                         <textarea 
                           value={row.clozeTemplate}
                           onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, clozeTemplate: e.target.value } : r))}
-                          className="input"
-                          style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem", minHeight: "80px", resize: "vertical", border: "1px solid var(--accent)" }}
+                          className="input import-input"
+                          style={{ 
+                            width: "100%", 
+                            background: "rgba(255, 255, 255, 0.03)", 
+                            border: "1px solid var(--accent)", 
+                            borderRadius: "8px", 
+                            padding: "0.75rem", 
+                            fontSize: "0.85rem", 
+                            minHeight: "80px", 
+                            resize: "vertical",
+                            color: "var(--text-primary)"
+                          }}
                           placeholder="Cloze Template (e.g. {{c1::Answer}} is...)"
                         />
                       ) : (
                         <textarea 
                           value={row.front}
                           onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, front: e.target.value } : r))}
-                          className="input"
-                          style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem", minHeight: "60px", resize: "vertical" }}
+                          className="input import-input"
+                          style={{ 
+                            width: "100%", 
+                            background: "rgba(255, 255, 255, 0.03)", 
+                            border: "1px solid rgba(255, 255, 255, 0.12)", 
+                            borderRadius: "8px", 
+                            padding: "0.75rem", 
+                            fontSize: "0.85rem", 
+                            minHeight: "80px", 
+                            resize: "vertical",
+                            color: "var(--text-primary)"
+                          }}
                           placeholder="Question content..."
                         />
                       )}
                     </td>
-                    <td style={{ padding: "1rem 0.5rem" }}>
+                    <td style={{ padding: "1rem 0.5rem", verticalAlign: "middle" }}>
                       {isCloze ? (
-                        <div style={{ color: "var(--text-muted)", fontSize: "0.75rem", padding: "0.5rem", background: "rgba(0,0,0,0.1)", borderRadius: "8px" }}>
+                        <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", padding: "0.75rem", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "8px" }}>
                           Cloze cards use the template field for both sides.
                         </div>
                       ) : isMcq ? (
@@ -601,16 +678,32 @@ export default function BulkImportPage() {
                           <input 
                             value={row.options}
                             onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, options: e.target.value } : r))}
-                            className="input"
-                            style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem" }}
+                            className="input import-input"
+                            style={{ 
+                              width: "100%", 
+                              background: "rgba(255, 255, 255, 0.03)", 
+                              border: "1px solid rgba(255, 255, 255, 0.12)", 
+                              borderRadius: "8px", 
+                              padding: "0.5rem 0.75rem", 
+                              fontSize: "0.85rem",
+                              color: "var(--text-primary)"
+                            }}
                             placeholder="Opt1 | Opt2 | Opt3"
                           />
                           <input 
                             type="number"
                             value={row.correctOption}
                             onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, correctOption: e.target.value } : r))}
-                            className="input"
-                            style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem" }}
+                            className="input import-input"
+                            style={{ 
+                              width: "100%", 
+                              background: "rgba(255, 255, 255, 0.03)", 
+                              border: "1px solid rgba(255, 255, 255, 0.12)", 
+                              borderRadius: "8px", 
+                              padding: "0.5rem 0.75rem", 
+                              fontSize: "0.85rem",
+                              color: "var(--text-primary)"
+                            }}
                             placeholder="Correct index (0-3)"
                           />
                         </div>
@@ -618,22 +711,40 @@ export default function BulkImportPage() {
                         <textarea 
                           value={row.back}
                           onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, back: e.target.value } : r))}
-                          className="input"
-                          style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem", minHeight: "60px", resize: "vertical" }}
+                          className="input import-input"
+                          style={{ 
+                            width: "100%", 
+                            background: "rgba(255, 255, 255, 0.03)", 
+                            border: "1px solid rgba(255, 255, 255, 0.12)", 
+                            borderRadius: "8px", 
+                            padding: "0.75rem", 
+                            fontSize: "0.85rem", 
+                            minHeight: "80px", 
+                            resize: "vertical",
+                            color: "var(--text-primary)"
+                          }}
                           placeholder="Answer content..."
                         />
                       )}
                     </td>
-                    <td style={{ padding: "1rem 0.5rem" }}>
+                    <td style={{ padding: "1rem 0.5rem", verticalAlign: "middle" }}>
                       <input 
                         value={row.tags}
                         onChange={(e) => setRows(prev => prev.map((r, i) => i === idx ? { ...r, tags: e.target.value } : r))}
-                        className="input"
-                        style={{ width: "100%", background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "0.5rem", fontSize: "0.85rem" }}
+                        className="input import-input"
+                        style={{ 
+                          width: "100%", 
+                          background: "rgba(255, 255, 255, 0.03)", 
+                          border: "1px solid rgba(255, 255, 255, 0.12)", 
+                          borderRadius: "8px", 
+                          padding: "0.5rem 0.75rem", 
+                          fontSize: "0.85rem",
+                          color: "var(--text-primary)"
+                        }}
                         placeholder="tag1, tag2"
                       />
                     </td>
-                    <td style={{ padding: "1rem 0.5rem", textAlign: "center" }}>
+                    <td style={{ padding: "1rem 0.5rem", textAlign: "center", verticalAlign: "middle" }}>
                       <button 
                         onClick={() => setRows(prev => prev.map((r, i) => i === idx ? { ...r, tier: r.tier === 'free' ? 'premium' : 'free' } : r))}
                         className={`btn ${row.tier === 'premium' ? 'btn-primary' : 'btn-ghost'}`}
@@ -642,7 +753,7 @@ export default function BulkImportPage() {
                         {row.tier}
                       </button>
                     </td>
-                    <td style={{ padding: "1rem 0.5rem", textAlign: "center" }}>
+                    <td style={{ padding: "1rem 0.5rem", textAlign: "center", verticalAlign: "middle" }}>
                       <button 
                         onClick={() => setPreviewRow(row)}
                         className="btn btn-ghost"
@@ -651,10 +762,11 @@ export default function BulkImportPage() {
                         <Sparkles size={16} className="text-accent" />
                       </button>
                     </td>
-                    <td style={{ padding: "1rem 0.5rem", textAlign: "center" }}>
+                    <td style={{ padding: "1rem 0.5rem", textAlign: "center", verticalAlign: "middle" }}>
                       <button 
                         onClick={() => setRows(prev => prev.filter((_, i) => i !== idx))}
-                        style={{ background: "none", border: "none", color: "var(--error)", cursor: "pointer", opacity: 0.7 }}
+                        className="row-delete-btn"
+                        style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", opacity: 0.6, padding: "0.4rem" }}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -679,12 +791,25 @@ export default function BulkImportPage() {
           </button>
           
           {selectedIndices.size > 0 && (
-            <div className="animate-in" style={{ display: "flex", gap: "0.5rem", alignItems: "center", padding: "0 1rem", background: "rgba(245, 158, 11, 0.1)", borderRadius: "12px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
+            <div className="animate-in" style={{ display: "flex", gap: "0.5rem", alignItems: "center", padding: "0.5rem 1rem", background: "rgba(245, 158, 11, 0.1)", borderRadius: "12px", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
               <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--accent)", marginRight: "0.5rem" }}>{selectedIndices.size} Selected</span>
               <button onClick={() => handleBulkTier('free')} className="btn btn-ghost" style={{ padding: "0.3rem 0.7rem", fontSize: "0.7rem" }}>Make Free</button>
               <button onClick={() => handleBulkTier('premium')} className="btn btn-ghost" style={{ padding: "0.3rem 0.7rem", fontSize: "0.7rem" }}>Make Premium</button>
               <div style={{ width: "1px", height: "20px", background: "var(--border)", margin: "0 0.25rem" }} />
-              <button onClick={handleBulkDelete} className="btn btn-ghost" style={{ padding: "0.4rem", color: "var(--error)" }}>
+              <button 
+                onClick={handleBulkDelete} 
+                className="btn btn-ghost bulk-delete-btn" 
+                style={{ 
+                  padding: "0.5rem 0.75rem", 
+                  color: "#ef4444", 
+                  background: "rgba(239, 68, 68, 0.08)", 
+                  border: "1px solid rgba(239, 68, 68, 0.2)", 
+                  borderRadius: "8px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <Trash2 size={16} />
               </button>
             </div>
