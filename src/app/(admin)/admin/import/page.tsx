@@ -9,6 +9,18 @@ import {
   Database, Settings2, X, Layers, Loader2
 } from "lucide-react";
 import type { Id } from "../../../../../convex/_generated/dataModel";
+import { FlashCard } from "@/components/cards/FlashCard";
+import { MCQCard } from "@/components/cards/MCQCard";
+import { ClozeCard } from "@/components/cards/ClozeCard";
+import { NumericalEntryCard } from "@/components/cards/NumericalEntryCard";
+import { MultiSelectCard } from "@/components/cards/MultiSelectCard";
+import { AssertionReasonCard } from "@/components/cards/AssertionReasonCard";
+import { TrueFalseJustifyCard } from "@/components/cards/TrueFalseJustifyCard";
+import { ErrorSpottingCard } from "@/components/cards/ErrorSpottingCard";
+import { ConceptInterleaveCard } from "@/components/cards/ConceptInterleaveCard";
+import { SequencingCard } from "@/components/cards/SequencingCard";
+import { MatrixMatchCard } from "@/components/cards/MatrixMatchCard";
+import { ImageOcclusionCard } from "@/components/cards/ImageOcclusionCard";
 
 type RowData = Record<string, string>;
 const EMPTY_ROW = (slug: string = ""): RowData => {
@@ -693,6 +705,123 @@ export default function BulkImportPage() {
             >
               Copy to Clipboard
             </button>
+          </div>
+        </div>
+      )}
+      {/* --- Card Row Preview Modal --- */}
+      {previewRow && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem", background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)" }}>
+          <div className="glass-card" style={{ width: "100%", maxWidth: "800px", padding: "3rem", borderRadius: "32px", position: "relative", display: "flex", flexDirection: "column", gap: "2rem", maxHeight: "90vh", overflowY: "auto", background: "var(--bg-elevated)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.75rem", fontWeight: 600, letterSpacing: "-0.03em" }}>Row Preview</h2>
+              <button 
+                onClick={() => setPreviewRow(null)}
+                style={{ background: "rgba(255,255,255,0.05)", border: "none", color: "white", padding: "0.5rem", borderRadius: "50%", cursor: "pointer", display: "flex" }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              {previewRow.type === "flashcard" && (
+                <FlashCard 
+                  front={previewRow.front} 
+                  back={previewRow.back} 
+                  whyPrompt={previewRow.whyPrompt || undefined} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "mcq" && (
+                <MCQCard 
+                  front={previewRow.front} 
+                  options={previewRow.options ? previewRow.options.split("|").map(s => s.trim()) : []} 
+                  correctOption={previewRow.correctOption ? Number(previewRow.correctOption) : 0} 
+                  back={previewRow.back} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "cloze" && (
+                <ClozeCard 
+                  front={previewRow.front || previewRow.clozeTemplate} 
+                  clozeTemplate={previewRow.clozeTemplate} 
+                  back={previewRow.back} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "numerical" && (
+                <NumericalEntryCard 
+                  front={previewRow.front} 
+                  back={previewRow.back} 
+                  advancedMetadata={previewRow.advancedMetadata ? JSON.parse(previewRow.advancedMetadata) : {}} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "multi_select" && (
+                <MultiSelectCard 
+                  front={previewRow.front} 
+                  options={previewRow.options ? previewRow.options.split("|").map(s => s.trim()) : []} 
+                  advancedMetadata={previewRow.advancedMetadata ? JSON.parse(previewRow.advancedMetadata) : {}} 
+                  back={previewRow.back} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "assertion_reason" && (
+                <AssertionReasonCard 
+                  front={previewRow.front} 
+                  back={previewRow.back} 
+                  advancedMetadata={previewRow.advancedMetadata ? JSON.parse(previewRow.advancedMetadata) : {}} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "true_false_justify" && (
+                <TrueFalseJustifyCard 
+                  front={previewRow.front} 
+                  back={previewRow.back} 
+                  advancedMetadata={previewRow.advancedMetadata ? JSON.parse(previewRow.advancedMetadata) : {}} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "error_spotting" && (
+                <ErrorSpottingCard 
+                  front={previewRow.front} 
+                  back={previewRow.back} 
+                  advancedMetadata={previewRow.advancedMetadata ? JSON.parse(previewRow.advancedMetadata) : {}} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "concept_interleave" && (
+                <ConceptInterleaveCard 
+                  front={previewRow.front} 
+                  back={previewRow.back} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "sequencing" && (
+                <SequencingCard 
+                  front={previewRow.front} 
+                  back={previewRow.back} 
+                  options={previewRow.options ? previewRow.options.split("|").map(s => s.trim()) : []} 
+                  advancedMetadata={previewRow.advancedMetadata ? JSON.parse(previewRow.advancedMetadata) : {}} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "matrix_match" && (
+                <MatrixMatchCard 
+                  front={previewRow.front} 
+                  back={previewRow.back} 
+                  advancedMetadata={previewRow.advancedMetadata ? JSON.parse(previewRow.advancedMetadata) : {}} 
+                  onRate={() => {}} 
+                />
+              )}
+              {previewRow.type === "image_occlusion" && (
+                <ImageOcclusionCard 
+                  front={previewRow.front} 
+                  back={previewRow.back} 
+                  advancedMetadata={previewRow.advancedMetadata ? JSON.parse(previewRow.advancedMetadata) : {}} 
+                  onRate={() => {}} 
+                />
+              )}
+            </div>
           </div>
         </div>
       )}
