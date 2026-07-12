@@ -49,24 +49,41 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    // Split by global regex match
-    const rawTokens = clozeTemplate.split(/(?:\[\[|\{\{(?:c\d::)?)(.+?)(?:\]\]|\}\})/g);
-    const parsedTokens: ClozeToken[] = [];
-    const parsedBlanks: Array<{ index: number; answer: string }> = [];
-    
-    let blankCounter = 0;
-    for (let i = 0; i < rawTokens.length; i++) {
-      if (i % 2 === 0) {
-        if (rawTokens[i]) {
-          parsedTokens.push({ type: "text", content: rawTokens[i] });
+    // Parser helper that strictly pairs delimiters to prevent nested curly braces collisions in LaTeX
+    const parseCloze = (template: string) => {
+      const regex = /\[\[(?:c\d+::)?([\s\S]*?)\]\]|\{\{(?:c\d+::)?([\s\S]*?)\}\}/g;
+      const tokens: ClozeToken[] = [];
+      const blanks: Array<{ index: number; answer: string }> = [];
+      
+      let lastIndex = 0;
+      let blankCounter = 0;
+      let match;
+      
+      while ((match = regex.exec(template)) !== null) {
+        const matchIndex = match.index;
+        const content = match[1] !== undefined ? match[1] : match[2];
+        
+        // Text segment
+        if (matchIndex > lastIndex) {
+          tokens.push({ type: "text", content: template.substring(lastIndex, matchIndex) });
         }
-      } else {
-        parsedTokens.push({ type: "blank", content: rawTokens[i], blankIndex: blankCounter });
-        parsedBlanks.push({ index: blankCounter, answer: rawTokens[i] });
+        
+        // Blank segment
+        tokens.push({ type: "blank", content, blankIndex: blankCounter });
+        blanks.push({ index: blankCounter, answer: content });
         blankCounter++;
+        
+        lastIndex = regex.lastIndex;
       }
-    }
-    
+      
+      if (lastIndex < template.length) {
+        tokens.push({ type: "text", content: template.substring(lastIndex) });
+      }
+      
+      return { tokens, blanks };
+    };
+
+    const { tokens: parsedTokens, blanks: parsedBlanks } = parseCloze(clozeTemplate);
     setTokens(parsedTokens);
     setBlanks(parsedBlanks);
   }, [clozeTemplate]);
@@ -145,7 +162,7 @@ export function ClozeCard({ front, clozeTemplate, back, onRate }: ClozeCardProps
         <p style={{ fontWeight: 600, textTransform: "uppercase", fontSize: "0.8rem", color: "var(--accent)", marginBottom: "1rem", letterSpacing: "0.1em" }}>Fill in the blank</p>
         <div style={{ fontSize: "1.5rem", fontWeight: 700, lineHeight: 1.5 }}>
           <ContentRenderer fixEscapes>
-            {front.replace(/(?:\[\[|\{\{(?:c\d::)?)(.+?)(?:\]\]|\}\})/g, "_____")}
+            {front.replace(/\[\[(?:c\d+::)?([\s\S]*?)\]\]|\{\{(?:c\d+::)?([\s\S]*?)\}\}/g, "_____")}
           </ContentRenderer>
         </div>
       </div>
