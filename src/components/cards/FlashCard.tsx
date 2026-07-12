@@ -6,6 +6,8 @@ import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { Sparkles, HelpCircle } from "lucide-react";
 
+import { replaceNewlinesOutsideMath } from "@/lib/stringUtils";
+
 interface FlashCardProps {
   front: string;
   back: string;
@@ -19,7 +21,7 @@ interface FlashCardProps {
 
 function splitFrontContent(raw: string) {
   if (!raw) return { questionText: "", diagramText: "" };
-  const content = raw.replace(/\\n/g, "\n");
+  const content = replaceNewlinesOutsideMath(raw);
   const blockRegex = /(?:^|\n)[ \t]*(?:```)?(mermaid|chart)\s*\n([\s\S]*?)(?:```|(?=\n[ \t]*\n|$))/gi;
   
   let diagramText = "";

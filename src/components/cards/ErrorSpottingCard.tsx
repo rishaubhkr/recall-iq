@@ -6,6 +6,8 @@ import { ConfidenceRating } from "./ConfidenceRating";
 import { RatingButtons } from "./RatingButtons";
 import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 
+import { replaceNewlinesOutsideMath } from "@/lib/stringUtils";
+
 interface ErrorSpottingCardProps {
   front: string; // The multi-line derivation
   back: string;  // Explanation of the correct step
@@ -21,7 +23,7 @@ export function ErrorSpottingCard({ front, back, advancedMetadata, onRate }: Err
   const [confidence, setConfidence] = useState(0);
   const [revealed, setRevealed] = useState(false);
 
-  const rawLines = front.replace(/\\n/g, '\n').split('\n').filter(l => l.trim() !== "");
+  const rawLines = replaceNewlinesOutsideMath(front).split('\n').filter(l => l.trim() !== "");
   
   let instruction = "";
   let lines = rawLines;

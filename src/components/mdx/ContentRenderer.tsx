@@ -6,6 +6,8 @@ import rehypeKatex from "rehype-katex";
 import { MermaidBlock } from "./MermaidBlock";
 import { ChartBlock } from "./ChartBlock";
 
+import { replaceNewlinesOutsideMath } from "@/lib/stringUtils";
+
 const MD_OPTS = {
   remarkPlugins: [remarkMath],
   rehypePlugins: [rehypeKatex],
@@ -74,7 +76,7 @@ interface ContentRendererProps {
 export function ContentRenderer({ children, fixEscapes = true }: ContentRendererProps) {
   if (!children) return null;
 
-  let content = fixEscapes ? children.replace(/\\n/g, "\n") : children;
+  let content = fixEscapes ? replaceNewlinesOutsideMath(children) : children;
   
   // Pre-process to fix AI generated TSVs that output bare "mermaid" or "chart" 
   // without backticks (e.g. \n\nmermaid\ngraph TD...). 
