@@ -46,6 +46,12 @@ const VALID_TYPES = [
 ];
 
 function validateRow(row: RowData): string | null {
+  if (row.tier && row.tier.trim().startsWith("{")) {
+    return "Column shift detected! Check if options or correctOption merged due to spaces instead of tabs.";
+  }
+  if (row.tags && row.tags.trim().startsWith("{")) {
+    return "Column shift detected! JSON metadata ended up in the Tags column. Check for missing tabs.";
+  }
   if (!VALID_TYPES.includes(row.type)) return "Type";
   if (!row.subtopicSlug?.trim()) return "Slug";
   if (row.type !== "cloze" && !row.front?.trim()) return "Front";
@@ -298,12 +304,46 @@ export default function BulkImportPage() {
         headerRow.forEach((colName, i) => {
           const rawName = colName.trim().toLowerCase();
           const mappedKey = ALIAS_MAP[rawName];
-          if (mappedKey && cells[i]) {
+          if (mappedKey && cells[i] !== undefined) {
             row[mappedKey] = cells[i];
           }
         });
+
+        // Heuristic correction if a column shift occurred (e.g., JSON metadata ended up in tier, tags, etc.)
+        const jsonCellIdx = cells.findIndex(c => c.trim().startsWith("{") && c.trim().endsWith("}"));
+        if (jsonCellIdx !== -1 && jsonCellIdx !== headerRow.length - 1) {
+          const shiftedMetadata = cells[jsonCellIdx];
+          let shiftedTier = "";
+          let shiftedSlug = "";
+          let shiftedTags = "";
+
+          if (jsonCellIdx > 0) {
+            const potentialTier = cells[jsonCellIdx - 1].trim().toLowerCase();
+            if (potentialTier === "free" || potentialTier === "premium") {
+              shiftedTier = cells[jsonCellIdx - 1];
+              if (jsonCellIdx > 1) shiftedSlug = cells[jsonCellIdx - 2];
+              if (jsonCellIdx > 2) shiftedTags = cells[jsonCellIdx - 3];
+            }
+          }
+
+          if (shiftedMetadata) {
+            row.advancedMetadata = shiftedMetadata;
+            if (shiftedTier) row.tier = shiftedTier;
+            if (shiftedSlug) row.subtopicSlug = shiftedSlug;
+            if (shiftedTags) row.tags = shiftedTags;
+          }
+        }
+
+        // Repair MCQ options/correctOption if they were merged by space instead of tab (e.g. "Opt1 | Opt2 2")
+        if (row.type === "mcq" && row.options && (!row.correctOption || isNaN(Number(row.correctOption)))) {
+          const match = row.options.trim().match(/^(.*?)\s+(\d+)$/);
+          if (match) {
+            row.options = match[1].trim();
+            row.correctOption = match[2];
+          }
+        }
       } else {
-        defaultCols.forEach((key, i) => { if(cells[i]) row[key] = cells[i]; });
+        defaultCols.forEach((key, i) => { if(cells[i] !== undefined) row[key] = cells[i]; });
       }
       return row;
     });
