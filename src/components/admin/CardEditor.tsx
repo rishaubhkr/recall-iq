@@ -134,8 +134,47 @@ export function CardEditor({
     });
   };
 
-  const insertSnippet = (snippet: string) => {
-    setFront((prev) => prev + " " + snippet);
+  const renderMathToolbar = (field: "front" | "back" | "clozeTemplate" | "assertion" | "reason" | "justification") => {
+    return (
+      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.25rem" }}>
+        {JEE_SNIPPETS.map((s) => (
+          <button
+            key={s.label}
+            type="button"
+            onClick={() => {
+              if (field === "front") setFront((prev) => prev + " " + s.insert);
+              else if (field === "back") setBack((prev) => prev + " " + s.insert);
+              else if (field === "clozeTemplate") setClozeTemplate((prev) => prev + " " + s.insert);
+              else if (field === "assertion") setAdvancedMetadata((prev: any) => ({ ...prev, assertion: (prev.assertion ?? "") + " " + s.insert }));
+              else if (field === "reason") setAdvancedMetadata((prev: any) => ({ ...prev, reason: (prev.reason ?? "") + " " + s.insert }));
+              else if (field === "justification") setAdvancedMetadata((prev: any) => ({ ...prev, justification: (prev.justification ?? "") + " " + s.insert }));
+            }}
+            className="action-btn"
+            style={{
+              padding: "0.3rem 0.6rem",
+              fontSize: "0.65rem", fontWeight: 700,
+              fontFamily: "var(--font-mono)",
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "8px",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              transition: "all 0.2s cubic-bezier(0.16,1,0.3,1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+              e.currentTarget.style.color = "var(--text-primary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+              e.currentTarget.style.color = "var(--text-muted)";
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+    );
   };
 
   const TYPE_META: Record<string, { label: string, desc: string, color: string, bg: string, border: string }> = {
@@ -206,36 +245,7 @@ export function CardEditor({
             rows={4}
           />
           {/* KaTeX snippet toolbar */}
-          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-            {JEE_SNIPPETS.map((s) => (
-              <button
-                key={s.label}
-                onClick={() => insertSnippet(s.insert)}
-                className="action-btn"
-                style={{
-                  padding: "0.3rem 0.6rem",
-                  fontSize: "0.65rem", fontWeight: 700,
-                  fontFamily: "var(--font-mono)",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: "8px",
-                  color: "var(--text-muted)",
-                  cursor: "pointer",
-                  transition: "all 0.2s cubic-bezier(0.16,1,0.3,1)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.color = "var(--text-primary)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-                  e.currentTarget.style.color = "var(--text-muted)";
-                }}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+          {renderMathToolbar("front")}
         </Field>
 
         {/* Back */}
@@ -271,6 +281,7 @@ export function CardEditor({
               placeholder="Full answer with explanation. Markdown + KaTeX supported."
               rows={5}
             />
+            {renderMathToolbar("back")}
           </Field>
         )}
 
@@ -370,6 +381,7 @@ export function CardEditor({
                 onChange={(e) => setAdvancedMetadata({ ...advancedMetadata, assertion: e.target.value })}
                 placeholder="A: Statement A"
               />
+              {renderMathToolbar("assertion")}
             </Field>
             <Field label="Reasoning Statement">
               <input
@@ -378,6 +390,7 @@ export function CardEditor({
                 onChange={(e) => setAdvancedMetadata({ ...advancedMetadata, reason: e.target.value })}
                 placeholder="R: Statement R"
               />
+              {renderMathToolbar("reason")}
             </Field>
             <Field label="Correct Key (A-E)">
               <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -448,6 +461,7 @@ export function CardEditor({
               placeholder="The correct reasoning for why this statement is T/F..."
               rows={3}
             />
+            {renderMathToolbar("justification")}
           </Field>
         )}
 
@@ -473,6 +487,7 @@ export function CardEditor({
               onChange={(e) => setClozeTemplate(e.target.value)}
               placeholder='e.g. $KE = [[\\frac{1}{2}]]mv^2$'
             />
+            {renderMathToolbar("clozeTemplate")}
           </Field>
         )}
 
