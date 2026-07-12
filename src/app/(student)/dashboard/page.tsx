@@ -13,10 +13,8 @@ function StatCard({ icon: Icon, value, label, color, description, className }: {
 }) {
   return (
     <div className={`stat-card ${className || ""}`}>
-      <div style={{
-        width: 44, height: 44, background: `color-mix(in srgb, ${color} 12%, transparent)`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        borderRadius: "12px", flexShrink: 0,
+      <div className="stat-card-icon-wrapper" style={{
+        background: `color-mix(in srgb, ${color} 12%, transparent)`,
       }}>
         <Icon size={20} color={color} />
       </div>
