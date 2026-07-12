@@ -512,12 +512,27 @@ code,
 
   .main-content {
     margin-left: 0 !important;
-    padding: 1.5rem 1.5rem 85px !important;
+    padding: 1.5rem 1.5rem 100px !important;
     align-items: stretch;
   }
 
   .app-center {
     max-width: 100%;
+  }
+
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+    align-items: stretch;
+  }
+  
+  .bento-span-2 {
+    grid-column: span 2 !important;
+  }
+  
+  .bento-span-4 {
+    grid-column: span 2 !important;
   }
 
   .mobile-bottom-nav {
@@ -527,9 +542,7 @@ code,
     left: 0;
     right: 0;
     height: 64px;
-    background: rgba(15, 17, 23, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: #090a0f !important;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     z-index: 50;
     align-items: center;
@@ -572,7 +585,7 @@ code,
     box-shadow: 0 0 10px var(--accent);
   }
 
-  /* Special central action button glow for Study Mode */
+  /* Special central action button glow for Study Mode - reduced Chernobyl bloom */
   .mobile-nav-action {
     background: linear-gradient(135deg, var(--accent) 0%, #D97706 100%);
     color: #0F1117 !important;
@@ -583,14 +596,14 @@ code,
     align-items: center;
     justify-content: center;
     margin-top: -24px;
-    box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
-    border: 3px solid #0F1117;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+    border: 3px solid #090a0f;
     transition: var(--transition);
   }
 
   .mobile-nav-action:hover, .mobile-nav-action.active {
     transform: scale(1.05);
-    box-shadow: 0 4px 25px rgba(245, 158, 11, 0.6);
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
   }
 
   .mobile-nav-action.active {
@@ -604,6 +617,27 @@ code,
 
 .mobile-bottom-nav {
   display: none;
+}
+
+/* Stat Card responsiveness */
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+@media (min-width: 768px) {
+  .stat-card {
+    gap: 1.25rem;
+    padding: 1.25rem 1.5rem;
+  }
 }
 
 /* ── Inputs ───────────────────────────────────────────────────────── */
