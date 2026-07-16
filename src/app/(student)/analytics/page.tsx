@@ -273,17 +273,43 @@ export default function AnalyticsPage() {
 function MemoryGrowthChart({ timeline }: { timeline: any }) {
   const [range, setRange] = useState<30 | 60 | 90>(30);
 
-  if (!timeline || timeline.length === 0) return null;
+  if (!timeline || timeline.length < 2) {
+    return (
+      <div style={{ marginBottom: "2.5rem" }}>
+        <ChartCard
+          title="Memory Half-Life Growth"
+          subtitle="Your average memory stability over time — this is the metric that proves your brain is getting stronger."
+        >
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            padding: "3rem 1rem", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: "16px",
+            background: "rgba(255,255,255,0.01)", textAlign: "center", gap: "1rem"
+          }}>
+            <BrainCircuit size={40} style={{ color: "var(--accent)", opacity: 0.6 }} />
+            <div>
+              <p style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--text-primary)" }}>
+                Initializing Memory Tracking
+              </p>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "0.25rem", maxWidth: 420, lineHeight: 1.5 }}>
+                Your memory half-life timeline is generated automatically every day at 3:00 AM UTC.
+                Complete reviews today and your first data point will appear tomorrow!
+              </p>
+            </div>
+          </div>
+        </ChartCard>
+      </div>
+    );
+  }
 
   const filtered = timeline.filter((t: any) => {
     const cutoff = new Date(Date.now() - range * 86_400_000).toISOString().split("T")[0];
     return t.date >= cutoff;
   });
 
-  if (filtered.length < 2) return null;
+  const displayData = filtered.length >= 2 ? filtered : timeline;
 
-  const firstStability = filtered[0].avgStability;
-  const lastStability = filtered[filtered.length - 1].avgStability;
+  const firstStability = displayData[0].avgStability;
+  const lastStability = displayData[displayData.length - 1].avgStability;
   const growthPct = firstStability > 0 ? Math.round(((lastStability - firstStability) / firstStability) * 100) : 0;
 
   return (
@@ -313,7 +339,7 @@ function MemoryGrowthChart({ timeline }: { timeline: any }) {
           ))}
         </div>
         <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={filtered} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+          <AreaChart data={displayData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
             <defs>
               <linearGradient id="gradStability" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
