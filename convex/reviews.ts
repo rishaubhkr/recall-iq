@@ -20,18 +20,6 @@ export const recordReview = mutation({
 
     const now = Date.now();
 
-    // Log the review
-    await ctx.db.insert("reviews", {
-      sessionId: args.sessionId,
-      cardId: args.cardId,
-      userId: args.userId,
-      rating: args.rating as Rating,
-      confidence: args.confidence,
-      wasCorrect: args.wasCorrect,
-      responseMs: args.responseMs,
-      reviewedAt: now,
-    });
-
     // Get the card to find its subject
     const card = await ctx.db.get(args.cardId);
     if (!card) throw new Error("Card not found");
@@ -85,11 +73,36 @@ export const recordReview = mutation({
       )
       .unique();
 
+    // Fetch session context for session position and fatigue tracking
+    const session = await ctx.db.get(args.sessionId);
+    const positionInSession = session ? session.completedCardIds.length + 1 : 1;
+
+    // Calculate memory profile metrics at review time
+    const stabilityAtReview = existing ? existing.stability : 0;
+    const elapsedDays = existing ? (now - existing.lastReview) / 86_400_000 : 0;
+    const predictedRecall = existing ? retrievability(elapsedDays, existing.stability) : 1.0;
+    const timeOfDay = new Date(now).getUTCHours();
+
+    // Log the review with detailed memory metrics
+    await ctx.db.insert("reviews", {
+      sessionId: args.sessionId,
+      cardId: args.cardId,
+      userId: args.userId,
+      rating: args.rating as Rating,
+      confidence: args.confidence,
+      wasCorrect: args.wasCorrect,
+      responseMs: args.responseMs,
+      reviewedAt: now,
+      stabilityAtReview,
+      predictedRecall,
+      elapsedDays,
+      positionInSession,
+      timeOfDay,
+    });
+
     let error = 0;
 
     if (existing) {
-      // Bayesian update based on prediction error
-      const elapsedDays = (now - existing.lastReview) / 86_400_000;
       const expectedRecall = retrievability(elapsedDays, existing.stability);
       const actualRecall = args.wasCorrect ? 1.0 : 0.0;
       error = actualRecall - expectedRecall;
@@ -125,7 +138,8 @@ export const recordReview = mutation({
         now,
         profile?.personalizedW,
         profile?.retentionMultiplier,
-        profile?.targetRetention
+        profile?.targetRetention,
+        card.type
       );
       await ctx.db.patch(existing._id, next);
     } else {
@@ -136,7 +150,8 @@ export const recordReview = mutation({
         now,
         profile?.personalizedW,
         profile?.retentionMultiplier,
-        profile?.targetRetention
+        profile?.targetRetention,
+        card.type
       );
       await ctx.db.insert("userCardState", {
         userId: args.userId,
@@ -156,7 +171,6 @@ export const recordReview = mutation({
     }
 
     // Mark card complete in session
-    const session = await ctx.db.get(args.sessionId);
     if (session) {
       await ctx.db.patch(args.sessionId, {
         completedCardIds: [...session.completedCardIds, args.cardId],
@@ -226,14 +240,29 @@ export const getDueCards = query({
           return null;
         }
         
-        return { card, state, mentalHook: state.mentalHook };
+        return {
+          card,
+          state,
+          mentalHook: state.mentalHook,
+          isLeech: (state.lapses ?? 0) >= 5,
+        };
       }),
     );
 
-    return cards
+    const resolvedCards = cards
       .filter((item): item is NonNullable<typeof item> => item !== null)
-      .filter((item) => item.card.isPublished)
-      .slice(0, limit);
+      .filter((item) => item.card.isPublished);
+
+    // Sort by retrievability (lowest recall probability first) (P1)
+    resolvedCards.sort((a, b) => {
+      const elapsedDaysA = (now - a.state.lastReview) / 86_400_000;
+      const elapsedDaysB = (now - b.state.lastReview) / 86_400_000;
+      const rA = retrievability(elapsedDaysA, a.state.stability);
+      const rB = retrievability(elapsedDaysB, b.state.stability);
+      return rA - rB;
+    });
+
+    return resolvedCards.slice(0, limit);
   },
 });
 

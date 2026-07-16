@@ -179,6 +179,12 @@ export default defineSchema({
     wasCorrect: v.boolean(),
     responseMs: v.number(),     // time to answer in milliseconds
     reviewedAt: v.number(),     // Unix timestamp ms
+    // Memory profiling metrics
+    stabilityAtReview: v.optional(v.number()),
+    predictedRecall: v.optional(v.number()),
+    elapsedDays: v.optional(v.number()),
+    positionInSession: v.optional(v.number()),
+    timeOfDay: v.optional(v.number()), // Hour of day in UTC (0-23)
   })
     .index("by_user", ["userId"])
     .index("by_card", ["cardId"])
@@ -212,4 +218,29 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_subject", ["userId", "subjectId"]),
+
+  // ─── Memory Snapshots (Time-Series Tracking) ──────────────────────────────
+  memorySnapshots: defineTable({
+    userId: v.id("users"),
+    snapshotDate: v.string(), // ISO date "YYYY-MM-DD"
+    globalRetentionMultiplier: v.number(),
+    globalLearningSpeed: v.number(),
+    globalAccuracy: v.number(),
+    totalCardsStudied: v.number(),
+    totalReviewsLifetime: v.number(),
+    reviewsToday: v.number(),
+    avgStability: v.number(),
+    medianStability: v.number(),
+    p90Stability: v.number(),
+    matureCardCount: v.number(),
+    youngCardCount: v.number(),
+    newCardCount: v.number(),
+    lapseRate: v.number(),
+    subjectBreakdown: v.optional(v.any()), // JSON array of subject breakdown
+    avgSessionDurationMs: v.optional(v.number()),
+    avgResponseMs: v.number(),
+    calibrationError: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_date", ["userId", "snapshotDate"]),
 });

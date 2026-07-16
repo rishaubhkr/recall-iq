@@ -100,27 +100,48 @@ export function schedule(
   customW?: number[],
   retentionMultiplier: number = 1.0,
   targetRetention: number = 0.9,
+  cardType?: string,
 ): FSRSState {
   // Use custom W if provided, otherwise default W
   const wArr = customW && customW.length === 19 ? customW : W;
   const elapsedDays = (now - currentState.lastReview) / 86_400_000;
 
+  // Card Type Modifier coefficients
+  const TYPE_DIFFICULTY_MODIFIER: Record<string, number> = {
+    flashcard: 1.0,
+    elaborative: 1.0,
+    cloze: 0.95,
+    mcq: 0.85,
+    numerical: 1.1,
+    assertion_reason: 1.05,
+    error_spotting: 1.1,
+    matrix_match: 1.15,
+    sequencing: 1.05,
+    multi_select: 0.9,
+    true_false_justify: 0.95,
+  };
+  const typeModifier = cardType ? (TYPE_DIFFICULTY_MODIFIER[cardType] ?? 1.0) : 1.0;
+
   // Local helper functions using the active W array
   const initStability = (r: Rating) => wArr[r - 1];
-  const initDifficulty = (r: Rating) => clamp(wArr[4] - Math.exp(wArr[5] * (r - 1)) + 1, 1, 10);
+  const initDifficulty = (r: Rating) => clamp(wArr[4] - Math.exp(wArr[5] * (r - 1)) + 1, 1, 8.5);
   
-  // Apply retention multiplier to stability calculation
+  // Apply retention multiplier and card type modifier to stability calculation
   const nextInt = (s: number, tr = targetRetention) => {
-    // Apply multiplier to the effective stability
-    const effectiveS = s * retentionMultiplier;
+    // Apply multipliers to the effective stability
+    const effectiveS = s * retentionMultiplier * typeModifier;
     const raw = (effectiveS / FACTOR) * (Math.pow(tr, 1 / DECAY) - 1);
-    return Math.max(1, Math.round(raw));
+    
+    // Add ±10% fuzz factor to prevent review spikes
+    const fuzz = 1.0 + (Math.random() * 0.2 - 0.1);
+    return Math.max(1, Math.round(raw * fuzz));
   };
 
   const nextDiff = (d: number, r: Rating) => {
     const delta = wArr[6] * (1 / r - 1 / 2);
     const raw = d - delta;
-    return clamp(raw + wArr[7] * (wArr[4] - raw), 1, 10);
+    const meanReversionWeight = raw > 7 ? wArr[7] * 1.5 : wArr[7];
+    return clamp(raw + meanReversionWeight * (wArr[4] - raw), 1, 8.5);
   };
 
   const shortTermS = (s: number, r: Rating) => s * Math.exp(wArr[17] * (r - 3 + wArr[18]));
@@ -190,11 +211,14 @@ export function schedule(
   // ----- REVIEW -----
   const r = retrievability(elapsedDays, currentState.stability);
   const d = nextDiff(currentState.difficulty, rating);
+  const isSameDay = elapsedDays < 1.0;
 
   if (rating === 1) {
-    // Lapse → relearning
-    const s = wArr[11] * Math.pow(currentState.stability, -wArr[12]) *
-      (Math.pow(currentState.difficulty + 1, wArr[13]) - 1);
+    // Lapse → relearning (reduced penalty if same day review)
+    const s = isSameDay
+      ? currentState.stability * 0.5
+      : wArr[11] * Math.pow(currentState.stability, -wArr[12]) *
+        (Math.pow(currentState.difficulty + 1, wArr[13]) - 1);
     return {
       stability: Math.max(0.1, s),
       difficulty: d,
@@ -206,13 +230,17 @@ export function schedule(
     };
   }
 
-  const s = longTermS(d, currentState.stability, r, rating);
+  // Same-Day Review Handling: use shortTermS instead of longTermS
+  const s = isSameDay
+    ? shortTermS(currentState.stability, rating)
+    : longTermS(d, currentState.stability, r, rating);
+
   return {
     stability: clamp(s, 0.1, 36500),
     difficulty: d,
     reps: currentState.reps + 1,
     lapses: currentState.lapses,
-    state: "review",
+    state: isSameDay ? currentState.state : "review",
     lastReview: now,
     nextReview: now + nextInt(s) * 86_400_000,
   };

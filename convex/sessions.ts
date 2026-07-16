@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { validateUserOwnership } from "./authHelpers";
+import { retrievability } from "./fsrs";
 
 // ─── Create a new study session ───────────────────────────────────────────────
 export const createSession = mutation({
@@ -89,7 +90,8 @@ export const buildInterleavedSession = query({
           .withIndex("by_subject", (q) => q.eq("subjectId", subjectId))
           .collect();
 
-        const allCards: Id<"cards">[] = [];
+        // Collect all eligible cards under this subject
+        const subjectCards = [];
         for (const topic of topics) {
           const subtopics = await ctx.db
             .query("subtopics")
@@ -100,20 +102,52 @@ export const buildInterleavedSession = query({
               .query("cards")
               .withIndex("by_subtopic", (q) => q.eq("subtopicId", sub._id))
               .collect();
-            allCards.push(
-              ...cards
-                .filter(
-                  (c) =>
-                    // Allow if it's the user's personal card
-                    c.ownerId === args.userId ||
-                    // OR allow if it's an official published card (respecting tier)
-                    (c.isPublished && (userTier !== "free" || c.tier === "free")),
-                )
-                .map((c) => c._id),
+            subjectCards.push(
+              ...cards.filter(
+                (c) =>
+                  c.ownerId === args.userId ||
+                  (c.isPublished && (userTier !== "free" || c.tier === "free")),
+              ),
             );
           }
         }
-        return allCards.slice(0, perSubject);
+
+        // Separate due and new cards
+        const dueCardsWithState: { id: Id<"cards">; stability: number; lastReview: number }[] = [];
+        const newCards: Id<"cards">[] = [];
+
+        for (const card of subjectCards) {
+          const state = seenMap.get(card._id.toString());
+          if (state) {
+            if (!state.isArchived && state.nextReview <= now) {
+              dueCardsWithState.push({
+                id: card._id,
+                stability: state.stability,
+                lastReview: state.lastReview,
+              });
+            }
+          } else {
+            newCards.push(card._id);
+          }
+        }
+
+        // Sort due cards by retrievability (lowest first)
+        dueCardsWithState.sort((a, b) => {
+          const elapsedA = (now - a.lastReview) / 86_400_000;
+          const elapsedB = (now - b.lastReview) / 86_400_000;
+          const rA = retrievability(elapsedA, a.stability);
+          const rB = retrievability(elapsedB, b.stability);
+          return rA - rB;
+        });
+
+        const dueSortedIds = dueCardsWithState.map(c => c.id);
+
+        // Mix due and new up to perSubject limit
+        const mixed = [...dueSortedIds];
+        if (mixed.length < perSubject) {
+          mixed.push(...newCards.slice(0, perSubject - mixed.length));
+        }
+        return mixed.slice(0, perSubject);
       }),
     );
 

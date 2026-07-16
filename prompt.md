@@ -70,7 +70,7 @@ CRITICAL PLACEMENT RULE FOR FLASHCARDS:
 - NEVER put explanatory Mermaid diagrams, concept maps, or solution flowcharts in the 'front' (Question) column! Placing the diagram in 'front' spoils the answer for the student.
 - ALL explanatory Mermaid diagrams and JSON charts MUST be placed inside the 'back' (Answer) column or 'whyPrompt' column.
 
-RULE: Never use backticks (```) for graph blocks. Instead, write them as bare text blocks inside the field (separated by `\n`): write the word `mermaid` or `chart` on its own line, followed immediately by the block contents on subsequent lines, and end the block with two newlines (`\n\n`).
+RULE: Never use backticks (```) for graph blocks. Instead, write them as bare text blocks inside the field (separated by `\n`): write the word `mermaid` or `chart` on its own line, followed immediately with two nby the block contents on subsequent lines, and end the block ewlines (`\n\n`).
 RULE: Never put tabs inside graph blocks. Use spaces only inside JSON chart specs.
 
 6. Mermaid diagrams — use bare mermaid blocks (never use backticks) for: process flows, concept maps, sequences, relationships.
