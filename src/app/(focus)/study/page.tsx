@@ -17,9 +17,10 @@ import { ConceptInterleaveCard } from "@/components/cards/ConceptInterleaveCard"
 import { SequencingCard } from "@/components/cards/SequencingCard";
 import { MatrixMatchCard } from "@/components/cards/MatrixMatchCard";
 import { ImageOcclusionCard } from "@/components/cards/ImageOcclusionCard";
-import { X, ChevronRight, Loader2, Heart, ShieldAlert, BookOpen } from "lucide-react";
+import { LootBoxReveal } from "@/components/LootBoxReveal";
+import { X, ChevronRight, Loader2, Heart, BookOpen } from "lucide-react";
 import Link from "next/link";
-import { Suspense } from "react"; // Added
+import { Suspense } from "react";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 const DEMO_CARDS = [
@@ -111,6 +112,8 @@ function StudyPageContent() {
   const [done, setDone] = useState(false);
   const [isHeartShaking, setIsHeartShaking] = useState(false);
   const [xpGain, setXpGain] = useState<{ id: number; gain: number } | null>(null);
+  const [currentCombo, setCurrentCombo] = useState(0);
+  const [lootBox, setLootBox] = useState<{ tier: "bronze"|"silver"|"gold"|"diamond"; reward: { type: string; value: number; label: string } } | null>(null);
 
   const dueQueue = useQuery(
     api.reviews.getDueCards,
@@ -133,6 +136,7 @@ function StudyPageContent() {
   const recordReview = useMutation(api.reviews.recordReview);
   const recordActivity = useMutation(api.users.recordActivity);
   const saveHook = useMutation(api.userCards.saveMentalHook);
+  const claimLootBox = useMutation(api.notifications.claimLootBox);
 
   // Group all potential cards into batches
   const allBatches = useMemo(() => {
@@ -199,12 +203,17 @@ function StudyPageContent() {
     const newResults = [...results, { rating, confidence, wasCorrect }];
     setResults(newResults);
 
-    // Subtle feedback animations
+    // Combo tracking
+    const newCombo = wasCorrect ? currentCombo + 1 : 0;
+    setCurrentCombo(newCombo);
+    const comboActive = newCombo >= 5;
+
     if (!wasCorrect) {
       setIsHeartShaking(true);
       setTimeout(() => setIsHeartShaking(false), 500);
     }
-    const gain = wasCorrect ? 10 : 2;
+    const baseGain = wasCorrect ? 10 : 2;
+    const gain = comboActive ? baseGain * 2 : baseGain; // 2x XP during combo
     setXpGain({ id: Date.now(), gain });
     setTimeout(() => setXpGain(null), 1000);
 
@@ -223,6 +232,15 @@ function StudyPageContent() {
     if (currentIdx + 1 >= cards.length) {
       if (sessionId) await completeSession({ sessionId }).catch(console.error);
       if (convexUserId) await recordActivity({ userId: convexUserId }).catch(console.error);
+
+      // Trigger loot box for qualifying sessions (≥20 real cards)
+      const realCards = cards.filter((c) => !c._id.toString().startsWith("demo")).length;
+      if (convexUserId && realCards >= 20) {
+        const acc = newResults.filter((r) => r.wasCorrect).length / newResults.length;
+        claimLootBox({ userId: convexUserId, sessionAccuracy: acc, cardCount: realCards })
+          .then((result) => { if (result) setLootBox(result as any); })
+          .catch(console.error);
+      }
       setDone(true);
     } else {
       setCurrentIdx(currentIdx + 1);
@@ -241,10 +259,17 @@ function StudyPageContent() {
   if (done) {
     const accuracy = results.filter((r) => r.wasCorrect).length / results.length;
     const avgConf = results.reduce((s, r) => s + r.confidence, 0) / results.length;
-    const calibrationGap = Math.abs(avgConf / 5 - accuracy);
 
     return (
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "4rem 2rem", background: "var(--bg-primary)", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }} className="animate-in">
+        {/* Loot box overlay */}
+        {lootBox && (
+          <LootBoxReveal
+            tier={lootBox.tier}
+            reward={lootBox.reward}
+            onClaim={() => setLootBox(null)}
+          />
+        )}
         <div style={{ fontSize: "5rem", marginBottom: "2rem" }}>🏆</div>
         <h2 style={{ fontFamily: "var(--font-display)", fontSize: "3rem", fontWeight: 600, marginBottom: "1rem", textAlign: "center" }}>Session Complete!</h2>
         <p style={{ color: "var(--text-secondary)", fontSize: "1.25rem", marginBottom: "3rem", textAlign: "center" }}>You reviewed {cards.length} cards today. Keep it up!</p>
@@ -299,7 +324,7 @@ function StudyPageContent() {
   return (
     <div style={{ background: "var(--bg-primary)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       
-      {/* ── TOP BAR (BRANDED AMBER) ── */}
+      {/* ── TOP BAR ── */}
       <div style={{ maxWidth: 1000, width: "100%", margin: "0 auto", padding: "1.5rem 2rem", display: "flex", alignItems: "center", gap: "2rem" }}>
         <Link href="/dashboard" style={{ color: "var(--text-muted)" }} className="hover:text-primary transition-colors">
           <X size={32} />
@@ -313,7 +338,19 @@ function StudyPageContent() {
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-          <div 
+          {/* Combo badge */}
+          {currentCombo >= 5 && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: "0.4rem",
+              color: "#F59E0B", fontWeight: 700, fontSize: "0.95rem",
+              background: "rgba(245,158,11,0.12)", padding: "0.4rem 0.8rem",
+              borderRadius: "100px", border: "1px solid rgba(245,158,11,0.3)",
+              animation: "pulse 1s ease infinite",
+            }}>
+              🔥 {currentCombo}× combo · 2× XP
+            </div>
+          )}
+          <div
             className={isHeartShaking ? "animate-shake" : ""}
             style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#FF4B4B", fontWeight: 600, fontSize: "1.1rem", background: "rgba(255, 75, 75, 0.1)", padding: "0.4rem 0.8rem", borderRadius: "100px" }}
           >

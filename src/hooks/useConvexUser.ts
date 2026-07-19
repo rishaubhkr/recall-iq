@@ -42,6 +42,8 @@ export function useConvexUser() {
     convexUserId: convexUser?._id as Id<"users"> | undefined,
     tier: convexUser?.tier ?? "free",
     streak: convexUser?.streak ?? 0,
+    longestStreak: convexUser?.longestStreak ?? 0,
+    shields: convexUser?.shields ?? 0,
     totalReviews: convexUser?.totalReviews ?? 0,
     isLoading: !isLoaded || convexUser === undefined,
   };

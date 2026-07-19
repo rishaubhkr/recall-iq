@@ -9,12 +9,12 @@ import {
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/courses",   label: "Courses",   icon: GraduationCap },
-  { href: "/cards",     label: "My Cards",  icon: List },
+  { href: "/courses", label: "Courses", icon: GraduationCap },
+  { href: "/cards", label: "My Cards", icon: List },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { href: "/personal",  label: "Personal Space", icon: Sparkles },
-  { href: "/study",     label: "Study Now", icon: BookOpen },
-  { href: "/analytics", label: "Progress",  icon: BarChart3 },
+  { href: "/personal", label: "Personal Space", icon: Sparkles },
+  { href: "/study", label: "Study Now", icon: BookOpen },
+  { href: "/analytics", label: "Progress", icon: BarChart3 },
 ];
 
 export function StudentSidebar() {

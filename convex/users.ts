@@ -26,6 +26,8 @@ export const getOrCreate = mutation({
       lastActiveDate: undefined,
       totalReviews: 0,
       xp: 0,
+      shields: 0,
+      longestStreak: 0,
     });
 
     return ctx.db.get(userId);
@@ -50,7 +52,6 @@ export const updateTier = mutation({
     tier: v.union(v.literal("free"), v.literal("premium"), v.literal("admin")),
   },
   handler: async (ctx, args) => {
-    // Escalate security: Only authenticated admins can modify user subscription tiers
     await validateAdmin(ctx);
     await ctx.db.patch(args.userId, { tier: args.tier });
   },
@@ -60,7 +61,6 @@ export const updateTier = mutation({
 export const recordActivity = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    // IDOR check: Verify caller is updating their own streak record
     await validateUserOwnership(ctx, args.userId);
 
     const user = await ctx.db.get(args.userId);
@@ -69,16 +69,51 @@ export const recordActivity = mutation({
     const today = new Date().toISOString().split("T")[0];
     if (user.lastActiveDate === today) return;
 
-    const yesterday = new Date(Date.now() - 86_400_000)
-      .toISOString()
-      .split("T")[0];
-    const newStreak =
-      user.lastActiveDate === yesterday ? user.streak + 1 : 1;
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().split("T")[0];
+    const missedYesterday = user.lastActiveDate !== yesterday && user.lastActiveDate !== today;
+
+    // Shield consumption: missed yesterday but has a shield → preserve streak
+    if (missedYesterday && user.streak > 0 && (user.shields ?? 0) > 0) {
+      const newStreak = user.streak + 1;
+      await ctx.db.patch(args.userId, {
+        lastActiveDate: today,
+        streak: newStreak,
+        longestStreak: Math.max(newStreak, user.longestStreak ?? 0),
+        shields: (user.shields ?? 0) - 1,
+      });
+      return;
+    }
+
+    const newStreak = user.lastActiveDate === yesterday ? user.streak + 1 : 1;
 
     await ctx.db.patch(args.userId, {
       lastActiveDate: today,
       streak: newStreak,
+      longestStreak: Math.max(newStreak, user.longestStreak ?? 0),
     });
+  },
+});
+
+// ─── Award a streak shield ────────────────────────────────────────────────────
+export const awardShield = mutation({
+  args: { userId: v.id("users"), count: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    await validateUserOwnership(ctx, args.userId);
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+    await ctx.db.patch(args.userId, { shields: Math.min(5, (user.shields ?? 0) + (args.count ?? 1)) });
+  },
+});
+
+// ─── Use a streak shield manually ────────────────────────────────────────────
+export const useShield = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    await validateUserOwnership(ctx, args.userId);
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+    if ((user.shields ?? 0) <= 0) throw new Error("No shields available");
+    await ctx.db.patch(args.userId, { shields: (user.shields ?? 0) - 1 });
   },
 });
 

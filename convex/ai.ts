@@ -1,6 +1,7 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { api } from "./_generated/api";
 
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
@@ -81,6 +82,71 @@ export const generateCardsFromText = action({
       console.error("Gemini AI error:", error);
       // Return the specific error message to help debugging
       throw new Error(`AI Error: ${error.message || "Unknown error"}`);
+    }
+  },
+});
+
+export const generateWeeklyAiReport = action({
+  args: {
+    userId: v.id("users"),
+    weekStartDate: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (!genAI) {
+      throw new Error("GEMINI_API_KEY is not set in environment variables.");
+    }
+
+    // Fetch user stats for the past week
+    const stats = await ctx.runQuery(api.analytics.getWeeklyStatsForAi, {
+      userId: args.userId,
+    });
+
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+
+    const prompt = `
+      You are an elite academic coach specializing in preparing students for highly competitive exams like JEE (Joint Entrance Examination) and NEET.
+      You are generating the Weekly AI Brain Report for a student named ${stats.displayName}.
+
+      Here are their stats for the past 7 days (Week starting ${args.weekStartDate}):
+      - Daily Streak: ${stats.streak} days
+      - Reviews Completed: ${stats.weeklyReviewsCount} cards
+      - Average Recall Accuracy: ${stats.weeklyAccuracy}%
+      - Average Response Speed: ${stats.avgResponseMs}ms
+      - Mature Cards (Stability > 21 days): ${stats.matureCount} cards
+      - Leeches (Cards forgotten >= 5 times): ${stats.leechCount} cards
+      - Total unique cards studied: ${stats.totalStudied}
+
+      Please write a motivational, personalized, and actionable report in Markdown format.
+      Do not output any introductory or concluding text outside the Markdown. Start directly with the Markdown content.
+
+      Structure the report exactly like this:
+      
+      ## 📊 Weekly Performance Overview
+      [Analyze their review counts, streak consistency, and accuracy. Celebrate high streaks or nudge them if their accuracy is below 80%. Use bullet points and bold highlights.]
+
+      ## 🧠 Memory Stability & Speed Insights
+      [Analyze their response speed and leeches. Explain what their average response time (${stats.avgResponseMs}ms) says about their active recall confidence. If they have leeches, give a practical mnemonic or conceptual linkage advice for JEE/NEET topics.]
+
+      ## 🎯 High-Impact Focus Plan
+      [Provide 3 highly concrete, actionable goals for next week to optimize their FSRS schedule and secure their memory consistency.]
+    `;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text().trim();
+
+      // Save to cache in the database
+      await ctx.runMutation(api.analytics.saveWeeklyAiReport, {
+        userId: args.userId,
+        weekStartDate: args.weekStartDate,
+        summary: text,
+      });
+
+      return text;
+    } catch (error: any) {
+      console.error("Gemini AI Weekly Report error:", error);
+      throw new Error(`AI Weekly Report Error: ${error.message || "Unknown error"}`);
     }
   },
 });

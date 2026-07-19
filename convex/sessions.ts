@@ -80,6 +80,8 @@ export const buildInterleavedSession = query({
       .query("userCardState")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
+    // Map cardId → state for O(1) lookups in the loop below
+    const seenMap = new Map(seenStates.map((s) => [s.cardId.toString(), s]));
     const seenCardIds = new Set(seenStates.map((s) => s.cardId.toString()));
 
     // Collect cards per subject (mix of due + new)

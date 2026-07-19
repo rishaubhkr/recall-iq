@@ -167,6 +167,7 @@ export const recordReview = mutation({
       await ctx.db.patch(args.userId, {
         totalReviews: user.totalReviews + 1,
         xp: (user.xp ?? 0) + xpGain,
+        weeklyXp: (user.weeklyXp ?? 0) + xpGain,
       });
     }
 

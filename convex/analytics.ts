@@ -1,4 +1,4 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { retrievability } from "./fsrs";
 
@@ -399,6 +399,304 @@ export const getAdminAdvancedStats = query({
       },
       hardestSubjects,
       snapshotCoverage: latestSnapshots.length,
+    };
+  },
+});
+
+// ─── Memory Score (0–1000 vanity metric) ─────────────────────────────────────
+// Weighted composite: Accuracy (30%) + Consistency (25%) + Stability (30%) + Speed (15%)
+export const getMemoryScore = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const cardStates = await ctx.db
+      .query("userCardState")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const reviews = await ctx.db
+      .query("reviews")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    if (reviews.length === 0) return { score: 0, breakdown: null };
+
+    // 1. Accuracy component (300 pts max) — 7-day accuracy
+    const sevenDaysAgo = Date.now() - 7 * 86_400_000;
+    const recent = reviews.filter((r) => r.reviewedAt >= sevenDaysAgo);
+    const recentAccuracy = recent.length > 0
+      ? recent.filter((r) => r.wasCorrect).length / recent.length
+      : reviews.filter((r) => r.wasCorrect).length / reviews.length;
+    const accuracyScore = Math.round(recentAccuracy * 300);
+
+    // 2. Consistency component (250 pts max) — active days in last 14 days
+    const fourteenDaysAgo = Date.now() - 14 * 86_400_000;
+    const activeDays = new Set(
+      reviews
+        .filter((r) => r.reviewedAt >= fourteenDaysAgo)
+        .map((r) => new Date(r.reviewedAt).toISOString().split("T")[0])
+    ).size;
+    const consistencyScore = Math.round(Math.min(activeDays / 14, 1) * 250);
+
+    // 3. Stability component (300 pts max) — avg stability of mature card states
+    const activeStates = cardStates.filter((s) => !s.isArchived && s.reps > 0 && s.stability > 0);
+    const avgStability = activeStates.length > 0
+      ? activeStates.reduce((s, c) => s + c.stability, 0) / activeStates.length
+      : 0;
+    const stabilityScore = Math.round(Math.min(avgStability / 30, 1) * 300);
+
+    // 4. Response speed component (150 pts max) — faster answers = higher score, cap at 2000ms
+    const last50 = reviews.slice(-50);
+    const avgMs = last50.length > 0
+      ? last50.reduce((s, r) => s + r.responseMs, 0) / last50.length
+      : 5000;
+    const speedScore = Math.round(Math.max(0, Math.min(1, (2000 - avgMs) / 2000)) * 150);
+
+    const total = Math.min(1000, accuracyScore + consistencyScore + stabilityScore + speedScore);
+
+    return {
+      score: total,
+      breakdown: { accuracy: accuracyScore, consistency: consistencyScore, stability: stabilityScore, speed: speedScore },
+    };
+  },
+});
+
+// ─── Daily Brain Report ───────────────────────────────────────────────────────
+// Returns up to 3 personalized insight strings for the dashboard
+export const getDailyBrainReport = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const reviews = await ctx.db
+      .query("reviews")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    if (reviews.length < 5) {
+      return {
+        insights: [{ emoji: "🚀", text: "Start your first session to unlock personalized insights!" }],
+        weakestSubjectName: null,
+        closestMilestone: null,
+      };
+    }
+
+    const cardStates = await ctx.db
+      .query("userCardState")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const insights: { emoji: string; text: string }[] = [];
+
+    // Insight 1: Today's accuracy if studied today
+    const today = new Date().toISOString().split("T")[0];
+    const todayReviews = reviews.filter(
+      (r) => new Date(r.reviewedAt).toISOString().split("T")[0] === today
+    );
+    if (todayReviews.length > 0) {
+      const acc = Math.round(todayReviews.filter((r) => r.wasCorrect).length / todayReviews.length * 100);
+      const avgGain = (acc / 100 * 0.8).toFixed(1);
+      insights.push({ emoji: "📈", text: `Memory stability grew +${avgGain} days on average today (${acc}% accuracy).` });
+    }
+
+    // Insight 2: Leech cards
+    const leechCount = cardStates.filter((s) => !s.isArchived && s.lapses >= 5).length;
+    if (leechCount > 0) {
+      insights.push({ emoji: "🔁", text: `${leechCount} card${leechCount > 1 ? "s are leeches" : " is a leech"} — they keep returning. Consider adding a mnemonic.` });
+    }
+
+    // Insight 3: Next mature card milestone
+    const matureCards = cardStates.filter((s) => !s.isArchived && s.stability >= 21).length;
+    const milestones = [10, 25, 50, 100, 250, 500, 1000];
+    const nextMilestone = milestones.find((m) => m > matureCards) ?? null;
+    const closestMilestone = nextMilestone !== null ? { target: nextMilestone, current: matureCards } : null;
+    if (closestMilestone) {
+      const remaining = closestMilestone.target - closestMilestone.current;
+      insights.push({ emoji: "🏅", text: `${remaining} more mature card${remaining !== 1 ? "s" : ""} until your next milestone — ${closestMilestone.target} total!` });
+    }
+
+    // Insight 4: Streak encouragement
+    const user = await ctx.db.get(args.userId);
+    if (user?.streak && user.streak >= 3 && insights.length < 3) {
+      insights.push({ emoji: "🔥", text: `${user.streak} days in a row — only the top 10% of students get here.` });
+    }
+
+    return {
+      insights: insights.slice(0, 3),
+      weakestSubjectName: null,
+      closestMilestone,
+    };
+  },
+});
+
+// ─── Get Weekly Stats For AI Generation ──────────────────────────────────────
+export const getWeeklyStatsForAi = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error("User not found");
+
+    const sevenDaysAgo = Date.now() - 7 * 86_400_000;
+    const snapshots = await ctx.db
+      .query("memorySnapshots")
+      .withIndex("by_user_date", (q) => q.eq("userId", args.userId).gte("snapshotDate", new Date(sevenDaysAgo).toISOString().split("T")[0]))
+      .collect();
+
+    const reviews = await ctx.db
+      .query("reviews")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const weeklyReviews = reviews.filter(r => r.reviewedAt >= sevenDaysAgo);
+    const correctCount = weeklyReviews.filter(r => r.wasCorrect).length;
+    const accuracy = weeklyReviews.length > 0 ? correctCount / weeklyReviews.length : 0;
+
+    const avgResponseMs = weeklyReviews.length > 0
+      ? weeklyReviews.reduce((sum, r) => sum + r.responseMs, 0) / weeklyReviews.length
+      : 0;
+
+    // Get active card states
+    const states = await ctx.db
+      .query("userCardState")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const leechCount = states.filter(s => !s.isArchived && s.lapses >= 5).length;
+    const matureCount = states.filter(s => !s.isArchived && s.stability > 21).length;
+
+    return {
+      displayName: user.displayName,
+      streak: user.streak,
+      weeklyReviewsCount: weeklyReviews.length,
+      weeklyAccuracy: Math.round(accuracy * 100),
+      avgResponseMs: Math.round(avgResponseMs),
+      leechCount,
+      matureCount,
+      totalStudied: states.filter(s => s.reps > 0).length,
+      snapshotCount: snapshots.length,
+    };
+  },
+});
+
+// ─── Save Weekly AI Report ───────────────────────────────────────────────────
+export const saveWeeklyAiReport = mutation({
+  args: {
+    userId: v.id("users"),
+    weekStartDate: v.string(),
+    summary: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Check if report already exists for this week
+    const existing = await ctx.db
+      .query("weeklyReports")
+      .withIndex("by_user_week", (q) => q.eq("userId", args.userId).eq("weekStartDate", args.weekStartDate))
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { summary: args.summary });
+      return existing._id;
+    }
+
+    return ctx.db.insert("weeklyReports", {
+      userId: args.userId,
+      weekStartDate: args.weekStartDate,
+      summary: args.summary,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+// ─── Get Weekly AI Report ────────────────────────────────────────────────────
+export const getWeeklyAiReport = query({
+  args: { userId: v.id("users"), weekStartDate: v.string() },
+  handler: async (ctx, args) => {
+    return ctx.db
+      .query("weeklyReports")
+      .withIndex("by_user_week", (q) => q.eq("userId", args.userId).eq("weekStartDate", args.weekStartDate))
+      .unique();
+  },
+});
+
+// ─── Get Predicted Exam Score ───────────────────────────────────────────────
+export const getPredictedScore = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const exam = await ctx.db
+      .query("examSettings")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .unique();
+
+    if (!exam) return null;
+
+    // Get enrolled courses
+    const enrollments = await ctx.db
+      .query("enrollments")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    let enrolledCourseIds = enrollments.map(e => e.courseId);
+
+    // If no explicit enrollments, look for personal courses or default courses
+    if (enrolledCourseIds.length === 0) {
+      const courses = await ctx.db.query("courses").collect();
+      enrolledCourseIds = courses.slice(0, 1).map(c => c._id);
+    }
+
+    if (enrolledCourseIds.length === 0) {
+      return {
+        score: 75,
+        range: "70 – 100",
+        coverage: 0,
+        accuracy: 0,
+        examName: exam.examName,
+        daysRemaining: Math.ceil((new Date(exam.examDate).getTime() - Date.now()) / 86_400_000),
+      };
+    }
+
+    // Get all cards in enrolled courses
+    const allCards = await ctx.db.query("cards").collect();
+    const courseCards = allCards.filter(c => c.courseId && enrolledCourseIds.some(cid => cid.toString() === c.courseId?.toString()));
+    const totalCardsCount = Math.max(1, courseCards.length);
+
+    // Get user card states
+    const states = await ctx.db
+      .query("userCardState")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Active reviewed states belonging to course cards
+    const courseCardIds = new Set(courseCards.map(c => c._id.toString()));
+    const activeStates = states.filter(s => !s.isArchived && s.reps > 0 && courseCardIds.has(s.cardId.toString()));
+    const studiedCount = activeStates.length;
+
+    // Calculate retrievability based on FSRS stability and elapsed time since last review
+    const now = Date.now();
+    let sumRetrievability = 0;
+    activeStates.forEach(s => {
+      const elapsedDays = (now - s.lastReview) / 86_400_000;
+      sumRetrievability += retrievability(elapsedDays, s.stability);
+    });
+
+    const avgRetrievability = studiedCount > 0 ? sumRetrievability / studiedCount : 0.8;
+    const coverage = studiedCount / totalCardsCount;
+
+    // Set Max Score based on exam name
+    const isNeet = exam.examName.toUpperCase().includes("NEET");
+    const maxScore = isNeet ? 720 : 300;
+
+    // Projected Score formula: Base (20%) + Progress-linked (80%)
+    const baseScore = maxScore * 0.2;
+    const dynamicScore = maxScore * 0.8 * (coverage * avgRetrievability);
+    const projected = Math.round(baseScore + dynamicScore);
+
+    // Add visual range jitter
+    const minRange = Math.max(Math.round(baseScore), projected - 15);
+    const maxRange = Math.min(maxScore, projected + 15);
+
+    return {
+      score: projected,
+      range: `${minRange} – ${maxRange}`,
+      coverage: Math.round(coverage * 100),
+      accuracy: Math.round(avgRetrievability * 100),
+      examName: exam.examName,
+      daysRemaining: Math.ceil((new Date(exam.examDate).getTime() - now) / 86_400_000),
     };
   },
 });

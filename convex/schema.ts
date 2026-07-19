@@ -121,10 +121,16 @@ export default defineSchema({
     lastActiveDate: v.optional(v.string()), // ISO date string
     totalReviews: v.number(),
     xp: v.optional(v.number()),
+    shields: v.optional(v.number()),        // Streak shields inventory (protects 1 missed day each)
+    longestStreak: v.optional(v.number()),  // All-time best streak (for milestone celebrations)
+    weeklyXp: v.optional(v.number()),       // XP earned in the current week for leagues
+    league: v.optional(v.string()),         // Current league (Bronze, Silver, Gold, Platinum, Diamond)
   })
     .index("by_clerk_id", ["clerkId"])
     .index("by_tier", ["tier"])
-    .index("by_xp", ["xp"]),
+    .index("by_xp", ["xp"])
+    .index("by_weekly_xp", ["weeklyXp"])
+    .index("by_league_xp", ["league", "weeklyXp"]),
 
   // ─── FSRS v5 Per-Card-Per-User State ──────────────────────────────────────
   userCardState: defineTable({
@@ -243,4 +249,36 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_date", ["userId", "snapshotDate"]),
+
+  // ─── Web Push Subscriptions ───────────────────────────────────────────────
+  pushSubscriptions: defineTable({
+    userId: v.id("users"),
+    endpoint: v.string(),
+    p256dh: v.string(),    // Public key
+    auth: v.string(),      // Auth secret
+    createdAt: v.number(),
+    isActive: v.boolean(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
+
+  // ─── Exam Settings (per user) ─────────────────────────────────────────────
+  examSettings: defineTable({
+    userId: v.id("users"),
+    examName: v.string(),        // e.g. "JEE 2026", "NEET 2026"
+    examDate: v.string(),        // ISO date "YYYY-MM-DD"
+    dailyCardGoal: v.number(),   // Cards per day commitment
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"]),
+
+  // ─── Weekly AI Reports ─────────────────────────────────────────────────────
+  weeklyReports: defineTable({
+    userId: v.id("users"),
+    weekStartDate: v.string(),   // Monday ISO date "YYYY-MM-DD"
+    summary: v.string(),         // AI generated markdown
+    createdAt: v.number(),
+  })
+    .index("by_user_week", ["userId", "weekStartDate"]),
 });
